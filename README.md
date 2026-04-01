@@ -26,11 +26,13 @@
 │       ├── generation.py
 │       ├── human_review.py
 │       ├── metrics.py
-│       └── pipeline.py
+│       ├── pipeline.py
+│       └── triggers.py
 └── tests/
     ├── test_engine.py
     ├── test_human_review_and_metrics.py
-    └── test_pipeline.py
+    ├── test_pipeline.py
+    └── test_triggers.py
 ```
 
 ## 快速开始
@@ -46,6 +48,7 @@
 - 决策路由：支持 `approve/review/block` 三种分流策略。
 - 人工复核队列：自动收集 `review/block` 样本并支持人工结论回填。
 - 指标汇总：支持按历史迭代统计三类决策占比。
+- 节点触发建议：根据过程指标自动推荐下一步人工重大节点。
 
 ## 下一步开发方向
 

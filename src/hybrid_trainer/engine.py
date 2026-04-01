@@ -5,7 +5,9 @@ from dataclasses import dataclass, field
 from .evaluation import AutoEvaluator
 from .generation import TaskGenerator
 from .human_review import HumanReviewItem, HumanReviewQueue
+from .metrics import DecisionMetrics, summarize_decisions
 from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
+from .triggers import NodeTriggerRecommendation, recommend_major_nodes
 
 
 @dataclass(slots=True)
@@ -41,3 +43,9 @@ class TrainingEngine:
 
     def run_cycles(self, start: int, end: int, node: DecisionNode) -> list[CycleResult]:
         return [self.run_cycle(i, node) for i in range(start, end + 1)]
+
+    def summarize_metrics(self) -> DecisionMetrics:
+        return summarize_decisions(self.pipeline.history)
+
+    def recommend_nodes(self) -> list[NodeTriggerRecommendation]:
+        return recommend_major_nodes(self.summarize_metrics())

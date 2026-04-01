@@ -12,6 +12,7 @@ from .pipeline import (
     PipelineConfig,
     TrainingPipeline,
 )
+from .triggers import NodeTriggerRecommendation, recommend_major_nodes
 
 __all__ = [
     "AutoEvaluator",
@@ -24,10 +25,12 @@ __all__ = [
     "HumanReviewItem",
     "HumanReviewQueue",
     "IterationReport",
+    "NodeTriggerRecommendation",
     "PipelineConfig",
     "TaskGenerator",
     "TaskSample",
     "TrainingEngine",
     "TrainingPipeline",
+    "recommend_major_nodes",
     "summarize_decisions",
 ]
