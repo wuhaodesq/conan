@@ -24,9 +24,12 @@
 │       ├── engine.py
 │       ├── evaluation.py
 │       ├── generation.py
+│       ├── human_review.py
+│       ├── metrics.py
 │       └── pipeline.py
 └── tests/
     ├── test_engine.py
+    ├── test_human_review_and_metrics.py
     └── test_pipeline.py
 ```
 
@@ -39,8 +42,10 @@
 ## 当前已完成的开发
 
 - MVP 控制流：`TaskGenerator -> AutoEvaluator -> TrainingPipeline`。
-- 训练引擎：`TrainingEngine.run_cycle` 串联单轮闭环。
+- 训练引擎：`TrainingEngine.run_cycle/run_cycles` 支持单轮与区间执行。
 - 决策路由：支持 `approve/review/block` 三种分流策略。
+- 人工复核队列：自动收集 `review/block` 样本并支持人工结论回填。
+- 指标汇总：支持按历史迭代统计三类决策占比。
 
 ## 下一步开发方向
 
