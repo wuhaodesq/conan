@@ -21,8 +21,12 @@
 ├── src/
 │   └── hybrid_trainer/
 │       ├── __init__.py
+│       ├── engine.py
+│       ├── evaluation.py
+│       ├── generation.py
 │       └── pipeline.py
 └── tests/
+    ├── test_engine.py
     └── test_pipeline.py
 ```
 
@@ -32,8 +36,15 @@
 2. 安装开发依赖（可选）：`pip install pytest`
 3. 运行测试：`pytest -q`
 
+## 当前已完成的开发
+
+- MVP 控制流：`TaskGenerator -> AutoEvaluator -> TrainingPipeline`。
+- 训练引擎：`TrainingEngine.run_cycle` 串联单轮闭环。
+- 决策路由：支持 `approve/review/block` 三种分流策略。
+
 ## 下一步开发方向
 
 - 接入真实 task generator/verifier。
 - 引入可配置 reward policy 与版本管理。
 - 打通 SFT/RL 训练执行器与实验日志。
+- 增加人工决策台与节点触发规则配置。
