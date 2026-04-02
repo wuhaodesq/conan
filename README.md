@@ -23,6 +23,7 @@
 │       ├── __init__.py
 │       ├── engine.py
 │       ├── evaluation.py
+│       ├── experiment.py
 │       ├── generation.py
 │       ├── human_review.py
 │       ├── metrics.py
@@ -31,6 +32,7 @@
 │       └── triggers.py
 └── tests/
     ├── test_engine.py
+    ├── test_experiment_tracker.py
     ├── test_human_review_and_metrics.py
     ├── test_pipeline.py
     ├── test_strategy.py
@@ -52,6 +54,7 @@
 - 指标汇总：支持按历史迭代统计三类决策占比。
 - 节点触发建议：根据过程指标自动推荐下一步人工重大节点。
 - 策略切换建议：基于指标自动评估是否在 SFT/RL/DPO 间切换。
+- 实验追踪：记录 cycle/metrics/recommendation/strategy 事件并导出 JSONL。
 
 ## 下一步开发方向
 

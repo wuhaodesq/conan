@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .evaluation import AutoEvaluator
+from .experiment import ExperimentTracker
 from .generation import TaskGenerator
 from .human_review import HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
@@ -25,6 +26,7 @@ class TrainingEngine:
     pipeline: TrainingPipeline = field(default_factory=TrainingPipeline)
     review_queue: HumanReviewQueue = field(default_factory=HumanReviewQueue)
     strategy_manager: StrategyManager = field(default_factory=StrategyManager)
+    tracker: ExperimentTracker = field(default_factory=ExperimentTracker)
 
     def run_cycle(self, iteration: int, node: DecisionNode) -> CycleResult:
         sample = self.generator.generate(iteration)
@@ -41,16 +43,51 @@ class TrainingEngine:
                 )
             )
 
-        return CycleResult(iteration=iteration, score=result.score, decision_report=report)
+        cycle_result = CycleResult(iteration=iteration, score=result.score, decision_report=report)
+        self.tracker.track(
+            event_type="cycle_completed",
+            payload={
+                "iteration": iteration,
+                "score": result.score,
+                "node": node.value,
+                "decision": report.decision.value,
+            },
+        )
+        return cycle_result
 
     def run_cycles(self, start: int, end: int, node: DecisionNode) -> list[CycleResult]:
         return [self.run_cycle(i, node) for i in range(start, end + 1)]
 
     def summarize_metrics(self) -> DecisionMetrics:
-        return summarize_decisions(self.pipeline.history)
+        metrics = summarize_decisions(self.pipeline.history)
+        self.tracker.track(
+            event_type="metrics_summarized",
+            payload={
+                "total": metrics.total,
+                "approve": metrics.approve,
+                "review": metrics.review,
+                "block": metrics.block,
+            },
+        )
+        return metrics
 
     def recommend_nodes(self) -> list[NodeTriggerRecommendation]:
-        return recommend_major_nodes(self.summarize_metrics())
+        recommendations = recommend_major_nodes(self.summarize_metrics())
+        self.tracker.track(
+            event_type="nodes_recommended",
+            payload={"nodes": [item.node.value for item in recommendations]},
+        )
+        return recommendations
 
     def maybe_switch_strategy(self) -> StrategySwitchRecord | None:
-        return self.strategy_manager.maybe_switch(self.summarize_metrics())
+        switch = self.strategy_manager.maybe_switch(self.summarize_metrics())
+        if switch is not None:
+            self.tracker.track(
+                event_type="strategy_switched",
+                payload={
+                    "from": switch.from_strategy.value,
+                    "to": switch.to_strategy.value,
+                    "reason": switch.reason,
+                },
+            )
+        return switch
