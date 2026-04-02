@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+from .reward_policy import RewardPolicy
+
 
 class Decision(str, Enum):
     APPROVE = "approve"
@@ -18,8 +20,7 @@ class DecisionNode(str, Enum):
 
 @dataclass(slots=True)
 class PipelineConfig:
-    auto_pass_threshold: float = 0.8
-    review_band: float = 0.15
+    reward_policy: RewardPolicy = field(default_factory=RewardPolicy)
 
 
 @dataclass(slots=True)
@@ -36,8 +37,14 @@ class TrainingPipeline:
     config: PipelineConfig = field(default_factory=PipelineConfig)
     history: list[IterationReport] = field(default_factory=list)
 
-    def run_iteration(self, iteration: int, auto_score: float, node: DecisionNode) -> IterationReport:
-        decision, reason = self._decide(auto_score)
+    def run_iteration(
+        self,
+        iteration: int,
+        auto_score: float,
+        node: DecisionNode,
+        candidate_answer: str = "",
+    ) -> IterationReport:
+        decision, reason = self._decide(auto_score, candidate_answer)
         report = IterationReport(
             iteration=iteration,
             auto_score=auto_score,
@@ -48,14 +55,21 @@ class TrainingPipeline:
         self.history.append(report)
         return report
 
-    def _decide(self, auto_score: float) -> tuple[Decision, str]:
-        threshold = self.config.auto_pass_threshold
-        band = self.config.review_band
+    def update_reward_policy(self, new_policy: RewardPolicy) -> None:
+        self.config.reward_policy = new_policy
+
+    def _decide(self, auto_score: float, candidate_answer: str) -> tuple[Decision, str]:
+        policy = self.config.reward_policy
+        threshold = policy.approve_threshold
+        band = policy.review_band
+
+        if policy.should_block_answer(candidate_answer):
+            return Decision.BLOCK, f"命中策略黑名单词，按 {policy.version} 阻断"
 
         if auto_score >= threshold:
-            return Decision.APPROVE, "自动评估通过，进入策略更新"
+            return Decision.APPROVE, f"自动评估通过（{policy.version}），进入策略更新"
 
         if auto_score >= threshold - band:
-            return Decision.REVIEW, "处于灰区，触发人工节点复核"
+            return Decision.REVIEW, f"处于灰区（{policy.version}），触发人工节点复核"
 
-        return Decision.BLOCK, "自动评估未达标，回流样本池"
+        return Decision.BLOCK, f"自动评估未达标（{policy.version}），回流样本池"

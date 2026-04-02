@@ -28,6 +28,7 @@
 │       ├── human_review.py
 │       ├── metrics.py
 │       ├── pipeline.py
+│       ├── reward_policy.py
 │       ├── strategy.py
 │       └── triggers.py
 └── tests/
@@ -35,6 +36,7 @@
     ├── test_experiment_tracker.py
     ├── test_human_review_and_metrics.py
     ├── test_pipeline.py
+    ├── test_reward_policy.py
     ├── test_strategy.py
     └── test_triggers.py
 ```
@@ -55,6 +57,7 @@
 - 节点触发建议：根据过程指标自动推荐下一步人工重大节点。
 - 策略切换建议：基于指标自动评估是否在 SFT/RL/DPO 间切换。
 - 实验追踪：记录 cycle/metrics/recommendation/strategy 事件并导出 JSONL。
+- Reward 策略版本化：支持阈值与黑名单词规则热更新。
 
 ## 下一步开发方向
 

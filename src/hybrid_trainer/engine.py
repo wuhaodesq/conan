@@ -31,7 +31,12 @@ class TrainingEngine:
     def run_cycle(self, iteration: int, node: DecisionNode) -> CycleResult:
         sample = self.generator.generate(iteration)
         result = self.evaluator.evaluate(sample)
-        report = self.pipeline.run_iteration(iteration, result.score, node)
+        report = self.pipeline.run_iteration(
+            iteration,
+            result.score,
+            node,
+            candidate_answer=sample.candidate_answer,
+        )
 
         if report.decision in (Decision.REVIEW, Decision.BLOCK):
             self.review_queue.enqueue(
