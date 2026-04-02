@@ -12,6 +12,7 @@ from .pipeline import (
     PipelineConfig,
     TrainingPipeline,
 )
+from .strategy import StrategyManager, StrategySwitchRecord, TrainingStrategy
 from .triggers import NodeTriggerRecommendation, recommend_major_nodes
 
 __all__ = [
@@ -27,10 +28,13 @@ __all__ = [
     "IterationReport",
     "NodeTriggerRecommendation",
     "PipelineConfig",
+    "StrategyManager",
+    "StrategySwitchRecord",
     "TaskGenerator",
     "TaskSample",
     "TrainingEngine",
     "TrainingPipeline",
+    "TrainingStrategy",
     "recommend_major_nodes",
     "summarize_decisions",
 ]

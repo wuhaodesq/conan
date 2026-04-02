@@ -27,11 +27,13 @@
 │       ├── human_review.py
 │       ├── metrics.py
 │       ├── pipeline.py
+│       ├── strategy.py
 │       └── triggers.py
 └── tests/
     ├── test_engine.py
     ├── test_human_review_and_metrics.py
     ├── test_pipeline.py
+    ├── test_strategy.py
     └── test_triggers.py
 ```
 
@@ -49,6 +51,7 @@
 - 人工复核队列：自动收集 `review/block` 样本并支持人工结论回填。
 - 指标汇总：支持按历史迭代统计三类决策占比。
 - 节点触发建议：根据过程指标自动推荐下一步人工重大节点。
+- 策略切换建议：基于指标自动评估是否在 SFT/RL/DPO 间切换。
 
 ## 下一步开发方向
 
