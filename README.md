@@ -21,6 +21,7 @@
 ├── src/
 │   └── hybrid_trainer/
 │       ├── __init__.py
+│       ├── cli.py
 │       ├── curriculum.py
 │       ├── engine.py
 │       ├── evaluation.py
@@ -33,6 +34,7 @@
 │       ├── strategy.py
 │       └── triggers.py
 └── tests/
+    ├── test_cli.py
     ├── test_curriculum.py
     ├── test_engine.py
     ├── test_experiment_tracker.py
@@ -48,6 +50,7 @@
 1. 使用 Python 3.10+。
 2. 安装开发依赖（可选）：`pip install pytest`
 3. 运行测试：`pytest -q`
+4. 运行模拟：`python -m hybrid_trainer.cli --start 1 --end 10`
 
 ## 当前已完成的开发
 
@@ -61,6 +64,7 @@
 - 实验追踪：记录 cycle/metrics/recommendation/strategy 事件并导出 JSONL。
 - Reward 策略版本化：支持阈值与黑名单词规则热更新。
 - 课程迁移管理：根据通过率自动尝试从 foundation 提升到更高阶段。
+- CLI 运行入口：支持按迭代区间执行并导出 run summary JSON。
 
 ## 下一步开发方向
 

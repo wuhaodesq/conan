@@ -1,5 +1,6 @@
 """Hybrid self-improvement training prototype."""
 
+from .cli import run as run_cli
 from .curriculum import CurriculumAdvanceRecord, CurriculumManager, CurriculumStage
 from .engine import CycleResult, TrainingEngine
 from .evaluation import AutoEvaluator, EvaluationResult
@@ -45,5 +46,6 @@ __all__ = [
     "TrainingPipeline",
     "TrainingStrategy",
     "recommend_major_nodes",
+    "run_cli",
     "summarize_decisions",
 ]

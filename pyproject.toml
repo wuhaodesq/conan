@@ -12,3 +12,6 @@ requires-python = ">=3.10"
 pythonpath = ["src"]
 addopts = "-q"
 testpaths = ["tests"]
+
+[project.scripts]
+hybrid-trainer = "hybrid_trainer.cli:main"
