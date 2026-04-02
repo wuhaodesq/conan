@@ -21,6 +21,7 @@
 ├── src/
 │   └── hybrid_trainer/
 │       ├── __init__.py
+│       ├── curriculum.py
 │       ├── engine.py
 │       ├── evaluation.py
 │       ├── experiment.py
@@ -32,6 +33,7 @@
 │       ├── strategy.py
 │       └── triggers.py
 └── tests/
+    ├── test_curriculum.py
     ├── test_engine.py
     ├── test_experiment_tracker.py
     ├── test_human_review_and_metrics.py
@@ -58,6 +60,7 @@
 - 策略切换建议：基于指标自动评估是否在 SFT/RL/DPO 间切换。
 - 实验追踪：记录 cycle/metrics/recommendation/strategy 事件并导出 JSONL。
 - Reward 策略版本化：支持阈值与黑名单词规则热更新。
+- 课程迁移管理：根据通过率自动尝试从 foundation 提升到更高阶段。
 
 ## 下一步开发方向
 

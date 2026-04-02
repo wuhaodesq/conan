@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .curriculum import CurriculumAdvanceRecord, CurriculumManager
 from .evaluation import AutoEvaluator
 from .experiment import ExperimentTracker
 from .generation import TaskGenerator
@@ -26,6 +27,7 @@ class TrainingEngine:
     pipeline: TrainingPipeline = field(default_factory=TrainingPipeline)
     review_queue: HumanReviewQueue = field(default_factory=HumanReviewQueue)
     strategy_manager: StrategyManager = field(default_factory=StrategyManager)
+    curriculum_manager: CurriculumManager = field(default_factory=CurriculumManager)
     tracker: ExperimentTracker = field(default_factory=ExperimentTracker)
 
     def run_cycle(self, iteration: int, node: DecisionNode) -> CycleResult:
@@ -56,6 +58,7 @@ class TrainingEngine:
                 "score": result.score,
                 "node": node.value,
                 "decision": report.decision.value,
+                "curriculum_stage": self.curriculum_manager.current_stage.name,
             },
         )
         return cycle_result
@@ -96,3 +99,16 @@ class TrainingEngine:
                 },
             )
         return switch
+
+    def maybe_advance_curriculum(self) -> CurriculumAdvanceRecord | None:
+        record = self.curriculum_manager.maybe_advance(self.summarize_metrics())
+        if record is not None:
+            self.tracker.track(
+                event_type="curriculum_advanced",
+                payload={
+                    "from": record.from_stage,
+                    "to": record.to_stage,
+                    "reason": record.reason,
+                },
+            )
+        return record

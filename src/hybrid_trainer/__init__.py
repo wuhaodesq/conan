@@ -1,5 +1,6 @@
 """Hybrid self-improvement training prototype."""
 
+from .curriculum import CurriculumAdvanceRecord, CurriculumManager, CurriculumStage
 from .engine import CycleResult, TrainingEngine
 from .evaluation import AutoEvaluator, EvaluationResult
 from .experiment import ExperimentEvent, ExperimentTracker
@@ -19,6 +20,9 @@ from .triggers import NodeTriggerRecommendation, recommend_major_nodes
 
 __all__ = [
     "AutoEvaluator",
+    "CurriculumAdvanceRecord",
+    "CurriculumManager",
+    "CurriculumStage",
     "CycleResult",
     "Decision",
     "DecisionMetrics",
