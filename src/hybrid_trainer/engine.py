@@ -9,6 +9,7 @@ from .generation import TaskGenerator
 from .human_review import HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
 from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
+from .review_router import RoutedReviewBatch, route_review_items
 from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
 from .triggers import NodeTriggerRecommendation, recommend_major_nodes
@@ -126,3 +127,15 @@ class TrainingEngine:
     def restore_state(self, snapshot: EngineStateSnapshot) -> None:
         self.strategy_manager.current = snapshot.strategy
         self.curriculum_manager.current_index = min(snapshot.curriculum_index, len(self.curriculum_manager.stages) - 1)
+
+
+    def get_review_batch(self, budget: int) -> RoutedReviewBatch:
+        batch = route_review_items(self.review_queue.pending, budget)
+        self.tracker.track(
+            event_type="review_batch_routed",
+            payload={
+                "budget": budget,
+                "selected": [item.iteration for item in batch.items],
+            },
+        )
+        return batch

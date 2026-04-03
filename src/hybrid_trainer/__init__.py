@@ -9,6 +9,7 @@ from .generation import TaskGenerator, TaskSample
 from .human_review import HumanReviewDecision, HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
 from .reward_policy import RewardPolicy
+from .review_router import RoutedReviewBatch, route_review_items
 from .pipeline import (
     Decision,
     DecisionNode,
@@ -40,6 +41,7 @@ __all__ = [
     "NodeTriggerRecommendation",
     "PipelineConfig",
     "RewardPolicy",
+    "RoutedReviewBatch",
     "StrategyManager",
     "StrategySwitchRecord",
     "TaskGenerator",
@@ -49,6 +51,7 @@ __all__ = [
     "TrainingStrategy",
     "load_snapshot",
     "recommend_major_nodes",
+    "route_review_items",
     "run_cli",
     "save_snapshot",
     "summarize_decisions",

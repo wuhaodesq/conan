@@ -31,6 +31,7 @@
 │       ├── metrics.py
 │       ├── pipeline.py
 │       ├── reward_policy.py
+│       ├── review_router.py
 │       ├── state.py
 │       ├── strategy.py
 │       └── triggers.py
@@ -41,6 +42,7 @@
     ├── test_experiment_tracker.py
     ├── test_human_review_and_metrics.py
     ├── test_pipeline.py
+    ├── test_review_router.py
     ├── test_reward_policy.py
     ├── test_state.py
     ├── test_strategy.py
@@ -68,6 +70,7 @@
 - 课程迁移管理：根据通过率自动尝试从 foundation 提升到更高阶段。
 - CLI 运行入口：支持按迭代区间执行并导出 run summary JSON。
 - 状态快照：支持保存/恢复关键运行状态（策略、课程阶段、历史计数）。
+- 人工审核路由：支持按风险排序并在预算约束下选择高优先级样本。
 
 ## 下一步开发方向
 
