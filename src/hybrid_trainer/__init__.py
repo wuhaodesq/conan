@@ -16,6 +16,7 @@ from .pipeline import (
     PipelineConfig,
     TrainingPipeline,
 )
+from .state import EngineStateSnapshot, load_snapshot, save_snapshot
 from .strategy import StrategyManager, StrategySwitchRecord, TrainingStrategy
 from .triggers import NodeTriggerRecommendation, recommend_major_nodes
 
@@ -28,6 +29,7 @@ __all__ = [
     "Decision",
     "DecisionMetrics",
     "DecisionNode",
+    "EngineStateSnapshot",
     "EvaluationResult",
     "ExperimentEvent",
     "ExperimentTracker",
@@ -45,7 +47,9 @@ __all__ = [
     "TrainingEngine",
     "TrainingPipeline",
     "TrainingStrategy",
+    "load_snapshot",
     "recommend_major_nodes",
     "run_cli",
+    "save_snapshot",
     "summarize_decisions",
 ]

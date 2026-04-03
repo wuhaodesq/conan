@@ -9,6 +9,7 @@ from .generation import TaskGenerator
 from .human_review import HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
 from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
+from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
 from .triggers import NodeTriggerRecommendation, recommend_major_nodes
 
@@ -112,3 +113,16 @@ class TrainingEngine:
                 },
             )
         return record
+
+
+    def snapshot_state(self) -> EngineStateSnapshot:
+        return EngineStateSnapshot(
+            strategy=self.strategy_manager.current,
+            curriculum_index=self.curriculum_manager.current_index,
+            history_count=len(self.pipeline.history),
+            pending_reviews=len(self.review_queue.pending),
+        )
+
+    def restore_state(self, snapshot: EngineStateSnapshot) -> None:
+        self.strategy_manager.current = snapshot.strategy
+        self.curriculum_manager.current_index = min(snapshot.curriculum_index, len(self.curriculum_manager.stages) - 1)
