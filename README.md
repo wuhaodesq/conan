@@ -33,6 +33,7 @@
 │       ├── human_review.py
 │       ├── metrics.py
 │       ├── pipeline.py
+│       ├── policy_registry.py
 │       ├── report.py
 │       ├── reward_drift.py
 │       ├── reward_policy.py
@@ -52,6 +53,7 @@
     ├── test_failure_analysis.py
     ├── test_human_review_and_metrics.py
     ├── test_pipeline.py
+    ├── test_policy_registry.py
     ├── test_review_router.py
     ├── test_report.py
     ├── test_reward_drift.py
@@ -92,6 +94,7 @@
 - Reward 漂移分析：支持计算 drift index 并输出到运行摘要。
 - 工件导出：CLI 支持额外导出事件 JSONL 与运行状态快照 JSON。
 - 成本分析：支持估算自动评估与人工复核成本并输出到运行摘要。
+- Reward 策略注册表：支持策略版本注册与激活切换，便于回溯与灰度。
 
 ## 下一步开发方向
 

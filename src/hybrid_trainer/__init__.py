@@ -15,6 +15,7 @@ from .reward_policy import RewardPolicy
 from .reward_drift import RewardDriftReport, compute_reward_drift
 from .report import DecisionDashboard, build_dashboard
 from .review_router import RoutedReviewBatch, route_review_items
+from .policy_registry import PolicyRegistry, PolicyVersionRecord
 from .pipeline import (
     Decision,
     DecisionNode,
@@ -50,6 +51,8 @@ __all__ = [
     "IterationReport",
     "NodeTriggerRecommendation",
     "PipelineConfig",
+    "PolicyRegistry",
+    "PolicyVersionRecord",
     "RewardDriftReport",
     "RewardPolicy",
     "RoutedReviewBatch",

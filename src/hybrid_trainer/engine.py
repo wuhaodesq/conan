@@ -12,6 +12,7 @@ from .generation import TaskGenerator
 from .human_review import HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
 from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
+from .policy_registry import PolicyRegistry
 from .report import DecisionDashboard, build_dashboard
 from .reward_drift import RewardDriftReport, compute_reward_drift
 from .review_router import RoutedReviewBatch, route_review_items
@@ -37,7 +38,16 @@ class TrainingEngine:
     review_queue: HumanReviewQueue = field(default_factory=HumanReviewQueue)
     strategy_manager: StrategyManager = field(default_factory=StrategyManager)
     curriculum_manager: CurriculumManager = field(default_factory=CurriculumManager)
+    policy_registry: PolicyRegistry = field(default_factory=PolicyRegistry)
     tracker: ExperimentTracker = field(default_factory=ExperimentTracker)
+
+
+    def __post_init__(self) -> None:
+        active = self.pipeline.config.reward_policy
+        if active.version not in self.policy_registry.versions:
+            self.policy_registry.register(active, note="default bootstrap policy")
+        if self.policy_registry.active_version is None:
+            self.policy_registry.active_version = active.version
 
     def run_cycle(self, iteration: int, node: DecisionNode) -> CycleResult:
         sample = self.generator.generate(iteration)
@@ -230,3 +240,21 @@ class TrainingEngine:
             },
         )
         return cost
+
+
+    def apply_policy_version(self, version: str) -> None:
+        policy = self.policy_registry.activate(version)
+        self.pipeline.update_reward_policy(policy)
+        self.tracker.track(
+            event_type="policy_activated",
+            payload={"version": version},
+        )
+
+
+    def register_policy(self, note: str = "") -> None:
+        policy = self.pipeline.config.reward_policy
+        self.policy_registry.register(policy, note=note)
+        self.tracker.track(
+            event_type="policy_registered",
+            payload={"version": policy.version, "note": note},
+        )
