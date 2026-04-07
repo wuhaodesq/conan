@@ -21,6 +21,7 @@ from .pipeline import (
 from .state import EngineStateSnapshot, load_snapshot, save_snapshot
 from .strategy import StrategyManager, StrategySwitchRecord, TrainingStrategy
 from .triggers import NodeTriggerRecommendation, recommend_major_nodes
+from .verifier import SimpleVerifier, VerifierResult
 
 __all__ = [
     "ActiveLearningCandidate",
@@ -44,6 +45,7 @@ __all__ = [
     "PipelineConfig",
     "RewardPolicy",
     "RoutedReviewBatch",
+    "SimpleVerifier",
     "StrategyManager",
     "StrategySwitchRecord",
     "TaskGenerator",
@@ -51,6 +53,7 @@ __all__ = [
     "TrainingEngine",
     "TrainingPipeline",
     "TrainingStrategy",
+    "VerifierResult",
     "load_snapshot",
     "recommend_major_nodes",
     "route_review_items",

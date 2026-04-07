@@ -14,6 +14,7 @@ from .review_router import RoutedReviewBatch, route_review_items
 from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
 from .triggers import NodeTriggerRecommendation, recommend_major_nodes
+from .verifier import SimpleVerifier
 
 
 @dataclass(slots=True)
@@ -27,6 +28,7 @@ class CycleResult:
 class TrainingEngine:
     generator: TaskGenerator = field(default_factory=TaskGenerator)
     evaluator: AutoEvaluator = field(default_factory=AutoEvaluator)
+    verifier: SimpleVerifier = field(default_factory=SimpleVerifier)
     pipeline: TrainingPipeline = field(default_factory=TrainingPipeline)
     review_queue: HumanReviewQueue = field(default_factory=HumanReviewQueue)
     strategy_manager: StrategyManager = field(default_factory=StrategyManager)
@@ -42,6 +44,26 @@ class TrainingEngine:
             node,
             candidate_answer=sample.candidate_answer,
         )
+
+        verifier_result = self.verifier.verify(sample, result.score)
+        if verifier_result.requires_review and report.decision == Decision.APPROVE:
+            report = IterationReport(
+                iteration=report.iteration,
+                auto_score=report.auto_score,
+                node=report.node,
+                decision=Decision.REVIEW,
+                reason=f"Verifier 偏差 {verifier_result.delta:.2f} 超阈值，转人工复核",
+            )
+            self.pipeline.history[-1] = report
+            self.tracker.track(
+                event_type="verifier_override",
+                payload={
+                    "iteration": iteration,
+                    "auto_score": result.score,
+                    "verifier_score": verifier_result.verifier_score,
+                    "delta": verifier_result.delta,
+                },
+            )
 
         if report.decision in (Decision.REVIEW, Decision.BLOCK):
             self.review_queue.enqueue(
@@ -116,7 +138,6 @@ class TrainingEngine:
             )
         return record
 
-
     def snapshot_state(self) -> EngineStateSnapshot:
         return EngineStateSnapshot(
             strategy=self.strategy_manager.current,
@@ -129,7 +150,6 @@ class TrainingEngine:
         self.strategy_manager.current = snapshot.strategy
         self.curriculum_manager.current_index = min(snapshot.curriculum_index, len(self.curriculum_manager.stages) - 1)
 
-
     def get_review_batch(self, budget: int) -> RoutedReviewBatch:
         batch = route_review_items(self.review_queue.pending, budget)
         self.tracker.track(
@@ -140,7 +160,6 @@ class TrainingEngine:
             },
         )
         return batch
-
 
     def collect_active_learning_candidates(self, limit: int) -> list[ActiveLearningCandidate]:
         threshold = self.pipeline.config.reward_policy.approve_threshold

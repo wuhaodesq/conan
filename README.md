@@ -35,7 +35,8 @@
 │       ├── review_router.py
 │       ├── state.py
 │       ├── strategy.py
-│       └── triggers.py
+│       ├── triggers.py
+│       └── verifier.py
 └── tests/
     ├── test_cli.py
     ├── test_curriculum.py
@@ -48,7 +49,8 @@
     ├── test_reward_policy.py
     ├── test_state.py
     ├── test_strategy.py
-    └── test_triggers.py
+    ├── test_triggers.py
+    └── test_verifier.py
 ```
 
 ## 快速开始
@@ -74,6 +76,7 @@
 - 状态快照：支持保存/恢复关键运行状态（策略、课程阶段、历史计数）。
 - 人工审核路由：支持按风险排序并在预算约束下选择高优先级样本。
 - 主动学习候选：支持从历史中自动筛选最不确定样本用于重点标注。
+- Verifier 交叉检查：支持在评估器与验证器分歧过大时强制进入人工复核。
 
 ## 下一步开发方向
 
