@@ -38,6 +38,7 @@
 │       ├── reward_drift.py
 │       ├── reward_policy.py
 │       ├── review_router.py
+│       ├── search.py
 │       ├── state.py
 │       ├── strategy.py
 │       ├── triggers.py
@@ -55,6 +56,7 @@
     ├── test_pipeline.py
     ├── test_policy_registry.py
     ├── test_review_router.py
+    ├── test_search.py
     ├── test_report.py
     ├── test_reward_drift.py
     ├── test_reward_policy.py
@@ -95,6 +97,7 @@
 - 工件导出：CLI 支持额外导出事件 JSONL 与运行状态快照 JSON。
 - 成本分析：支持估算自动评估与人工复核成本并输出到运行摘要。
 - Reward 策略注册表：支持策略版本注册与激活切换，便于回溯与灰度。
+- 多路径搜索：支持在单轮中采样多条候选路径并选择最优路径。
 
 ## 下一步开发方向
 

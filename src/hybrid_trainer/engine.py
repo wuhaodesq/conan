@@ -8,7 +8,7 @@ from .curriculum import CurriculumAdvanceRecord, CurriculumManager
 from .evaluation import AutoEvaluator
 from .experiment import ExperimentTracker
 from .failure_analysis import FailureTaxonomy, analyze_failures
-from .generation import TaskGenerator
+from .generation import TaskGenerator, TaskSample
 from .human_review import HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
 from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
@@ -16,6 +16,7 @@ from .policy_registry import PolicyRegistry
 from .report import DecisionDashboard, build_dashboard
 from .reward_drift import RewardDriftReport, compute_reward_drift
 from .review_router import RoutedReviewBatch, route_review_items
+from .search import PathCandidate, select_best_path
 from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
 from .triggers import NodeTriggerRecommendation, recommend_major_nodes
@@ -101,6 +102,41 @@ class TrainingEngine:
             },
         )
         return cycle_result
+
+
+    def run_multi_path_cycle(self, iteration: int, node: DecisionNode, num_paths: int = 3) -> CycleResult:
+        if num_paths <= 0:
+            raise ValueError("num_paths must be positive")
+
+        base = self.generator.generate(iteration)
+        candidates: list[PathCandidate] = []
+        for idx in range(num_paths):
+            sample = TaskSample(
+                task_id=base.task_id,
+                prompt=base.prompt,
+                candidate_answer=f"{base.candidate_answer}-path-{idx}",
+            )
+            result = self.evaluator.evaluate(sample)
+            candidates.append(PathCandidate(path_id=idx, score=result.score, answer=sample.candidate_answer))
+
+        best = select_best_path(candidates)
+        self.tracker.track(
+            event_type="multi_path_selected",
+            payload={"iteration": iteration, "path_id": best.path_id, "score": best.score, "num_paths": num_paths},
+        )
+
+        # Reuse single-path flow with best candidate score routed through pipeline.
+        report = self.pipeline.run_iteration(iteration, best.score, node, candidate_answer=best.answer)
+        if report.decision in (Decision.REVIEW, Decision.BLOCK):
+            self.review_queue.enqueue(
+                HumanReviewItem(
+                    iteration=iteration,
+                    node=node,
+                    auto_score=best.score,
+                    auto_decision=report.decision,
+                )
+            )
+        return CycleResult(iteration=iteration, score=best.score, decision_report=report)
 
     def run_cycles(self, start: int, end: int, node: DecisionNode) -> list[CycleResult]:
         return [self.run_cycle(i, node) for i in range(start, end + 1)]
