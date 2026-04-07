@@ -1,0 +1,64 @@
+"""Hybrid self-improvement training prototype."""
+
+from .active_learning import ActiveLearningCandidate, select_uncertain_samples
+from .cli import run as run_cli
+from .curriculum import CurriculumAdvanceRecord, CurriculumManager, CurriculumStage
+from .engine import CycleResult, TrainingEngine
+from .evaluation import AutoEvaluator, EvaluationResult
+from .experiment import ExperimentEvent, ExperimentTracker
+from .generation import TaskGenerator, TaskSample
+from .human_review import HumanReviewDecision, HumanReviewItem, HumanReviewQueue
+from .metrics import DecisionMetrics, summarize_decisions
+from .reward_policy import RewardPolicy
+from .review_router import RoutedReviewBatch, route_review_items
+from .pipeline import (
+    Decision,
+    DecisionNode,
+    IterationReport,
+    PipelineConfig,
+    TrainingPipeline,
+)
+from .state import EngineStateSnapshot, load_snapshot, save_snapshot
+from .strategy import StrategyManager, StrategySwitchRecord, TrainingStrategy
+from .triggers import NodeTriggerRecommendation, recommend_major_nodes
+from .verifier import SimpleVerifier, VerifierResult
+
+__all__ = [
+    "ActiveLearningCandidate",
+    "AutoEvaluator",
+    "CurriculumAdvanceRecord",
+    "CurriculumManager",
+    "CurriculumStage",
+    "CycleResult",
+    "Decision",
+    "DecisionMetrics",
+    "DecisionNode",
+    "EngineStateSnapshot",
+    "EvaluationResult",
+    "ExperimentEvent",
+    "ExperimentTracker",
+    "HumanReviewDecision",
+    "HumanReviewItem",
+    "HumanReviewQueue",
+    "IterationReport",
+    "NodeTriggerRecommendation",
+    "PipelineConfig",
+    "RewardPolicy",
+    "RoutedReviewBatch",
+    "SimpleVerifier",
+    "StrategyManager",
+    "StrategySwitchRecord",
+    "TaskGenerator",
+    "TaskSample",
+    "TrainingEngine",
+    "TrainingPipeline",
+    "TrainingStrategy",
+    "VerifierResult",
+    "load_snapshot",
+    "recommend_major_nodes",
+    "route_review_items",
+    "run_cli",
+    "save_snapshot",
+    "select_uncertain_samples",
+    "summarize_decisions",
+]
