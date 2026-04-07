@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .active_learning import ActiveLearningCandidate, select_uncertain_samples
 from .curriculum import CurriculumAdvanceRecord, CurriculumManager
 from .evaluation import AutoEvaluator
 from .experiment import ExperimentTracker
@@ -139,3 +140,16 @@ class TrainingEngine:
             },
         )
         return batch
+
+
+    def collect_active_learning_candidates(self, limit: int) -> list[ActiveLearningCandidate]:
+        threshold = self.pipeline.config.reward_policy.approve_threshold
+        candidates = select_uncertain_samples(self.pipeline.history, threshold=threshold, limit=limit)
+        self.tracker.track(
+            event_type="active_learning_selected",
+            payload={
+                "limit": limit,
+                "iterations": [item.iteration for item in candidates],
+            },
+        )
+        return candidates

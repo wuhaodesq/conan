@@ -21,6 +21,7 @@
 ├── src/
 │   └── hybrid_trainer/
 │       ├── __init__.py
+│       ├── active_learning.py
 │       ├── cli.py
 │       ├── curriculum.py
 │       ├── engine.py
@@ -39,6 +40,7 @@
     ├── test_cli.py
     ├── test_curriculum.py
     ├── test_engine.py
+    ├── test_active_learning.py
     ├── test_experiment_tracker.py
     ├── test_human_review_and_metrics.py
     ├── test_pipeline.py
@@ -71,6 +73,7 @@
 - CLI 运行入口：支持按迭代区间执行并导出 run summary JSON。
 - 状态快照：支持保存/恢复关键运行状态（策略、课程阶段、历史计数）。
 - 人工审核路由：支持按风险排序并在预算约束下选择高优先级样本。
+- 主动学习候选：支持从历史中自动筛选最不确定样本用于重点标注。
 
 ## 下一步开发方向
 

@@ -1,5 +1,6 @@
 """Hybrid self-improvement training prototype."""
 
+from .active_learning import ActiveLearningCandidate, select_uncertain_samples
 from .cli import run as run_cli
 from .curriculum import CurriculumAdvanceRecord, CurriculumManager, CurriculumStage
 from .engine import CycleResult, TrainingEngine
@@ -22,6 +23,7 @@ from .strategy import StrategyManager, StrategySwitchRecord, TrainingStrategy
 from .triggers import NodeTriggerRecommendation, recommend_major_nodes
 
 __all__ = [
+    "ActiveLearningCandidate",
     "AutoEvaluator",
     "CurriculumAdvanceRecord",
     "CurriculumManager",
@@ -54,5 +56,6 @@ __all__ = [
     "route_review_items",
     "run_cli",
     "save_snapshot",
+    "select_uncertain_samples",
     "summarize_decisions",
 ]
