@@ -11,6 +11,7 @@ from .generation import TaskGenerator
 from .human_review import HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
 from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
+from .report import DecisionDashboard, build_dashboard
 from .review_router import RoutedReviewBatch, route_review_items
 from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
@@ -187,3 +188,15 @@ class TrainingEngine:
             },
         )
         return taxonomy
+
+
+    def generate_dashboard(self) -> DecisionDashboard:
+        metrics = self.summarize_metrics()
+        failures = self.diagnose_failures()
+        recommendations = recommend_major_nodes(metrics)
+        dashboard = build_dashboard(metrics, failures, recommendations)
+        self.tracker.track(
+            event_type="dashboard_generated",
+            payload=dashboard.to_dict(),
+        )
+        return dashboard

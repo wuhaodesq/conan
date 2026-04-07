@@ -11,6 +11,7 @@ from .generation import TaskGenerator, TaskSample
 from .human_review import HumanReviewDecision, HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
 from .reward_policy import RewardPolicy
+from .report import DecisionDashboard, build_dashboard
 from .review_router import RoutedReviewBatch, route_review_items
 from .pipeline import (
     Decision,
@@ -32,6 +33,7 @@ __all__ = [
     "CurriculumStage",
     "CycleResult",
     "Decision",
+    "DecisionDashboard",
     "DecisionMetrics",
     "DecisionNode",
     "EngineStateSnapshot",
@@ -57,6 +59,7 @@ __all__ = [
     "TrainingStrategy",
     "VerifierResult",
     "analyze_failures",
+    "build_dashboard",
     "load_snapshot",
     "recommend_major_nodes",
     "route_review_items",

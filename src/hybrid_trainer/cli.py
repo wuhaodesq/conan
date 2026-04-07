@@ -31,21 +31,14 @@ def run(args: list[str] | None = None) -> Path:
     node = DecisionNode(ns.node)
     engine.run_cycles(ns.start, ns.end, node)
 
-    metrics = engine.summarize_metrics()
-    recommendations = [item.node.value for item in engine.recommend_nodes()]
+    dashboard = engine.generate_dashboard()
     strategy_switch = engine.maybe_switch_strategy()
     curriculum_adv = engine.maybe_advance_curriculum()
 
     payload = {
         "range": {"start": ns.start, "end": ns.end},
         "node": ns.node,
-        "metrics": {
-            "total": metrics.total,
-            "approve": metrics.approve,
-            "review": metrics.review,
-            "block": metrics.block,
-        },
-        "recommendations": recommendations,
+        "dashboard": dashboard.to_dict(),
         "strategy": {
             "current": engine.strategy_manager.current.value,
             "switched": strategy_switch is not None,

@@ -32,6 +32,7 @@
 │       ├── human_review.py
 │       ├── metrics.py
 │       ├── pipeline.py
+│       ├── report.py
 │       ├── reward_policy.py
 │       ├── review_router.py
 │       ├── state.py
@@ -48,6 +49,7 @@
     ├── test_human_review_and_metrics.py
     ├── test_pipeline.py
     ├── test_review_router.py
+    ├── test_report.py
     ├── test_reward_policy.py
     ├── test_state.py
     ├── test_strategy.py
@@ -80,6 +82,7 @@
 - 主动学习候选：支持从历史中自动筛选最不确定样本用于重点标注。
 - Verifier 交叉检查：支持在评估器与验证器分歧过大时强制进入人工复核。
 - 失败模式诊断：支持按 taxonomy 统计低分阻断/策略阻断/验证器复核等失败类型。
+- 决策看板：支持聚合 metrics/failures/recommendations 生成可视化友好的 dashboard 数据。
 
 ## 下一步开发方向
 

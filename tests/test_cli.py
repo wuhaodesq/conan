@@ -19,6 +19,6 @@ def test_cli_run_writes_summary_file(tmp_path) -> None:
     assert result == output
     data = json.loads(output.read_text())
     assert data["range"] == {"start": 7, "end": 9}
-    assert data["metrics"]["total"] == 3
+    assert data["dashboard"]["metrics"]["total"] == 3
     assert "strategy" in data
     assert "curriculum" in data
