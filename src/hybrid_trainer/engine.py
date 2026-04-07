@@ -6,6 +6,7 @@ from .active_learning import ActiveLearningCandidate, select_uncertain_samples
 from .curriculum import CurriculumAdvanceRecord, CurriculumManager
 from .evaluation import AutoEvaluator
 from .experiment import ExperimentTracker
+from .failure_analysis import FailureTaxonomy, analyze_failures
 from .generation import TaskGenerator
 from .human_review import HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
@@ -172,3 +173,17 @@ class TrainingEngine:
             },
         )
         return candidates
+
+
+    def diagnose_failures(self) -> FailureTaxonomy:
+        taxonomy = analyze_failures(self.pipeline.history)
+        self.tracker.track(
+            event_type="failure_diagnosed",
+            payload={
+                "low_score_block": taxonomy.low_score_block,
+                "policy_block": taxonomy.policy_block,
+                "verifier_override_review": taxonomy.verifier_override_review,
+                "generic_review": taxonomy.generic_review,
+            },
+        )
+        return taxonomy

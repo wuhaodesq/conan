@@ -6,6 +6,7 @@ from .curriculum import CurriculumAdvanceRecord, CurriculumManager, CurriculumSt
 from .engine import CycleResult, TrainingEngine
 from .evaluation import AutoEvaluator, EvaluationResult
 from .experiment import ExperimentEvent, ExperimentTracker
+from .failure_analysis import FailureTaxonomy, analyze_failures
 from .generation import TaskGenerator, TaskSample
 from .human_review import HumanReviewDecision, HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
@@ -37,6 +38,7 @@ __all__ = [
     "EvaluationResult",
     "ExperimentEvent",
     "ExperimentTracker",
+    "FailureTaxonomy",
     "HumanReviewDecision",
     "HumanReviewItem",
     "HumanReviewQueue",
@@ -54,6 +56,7 @@ __all__ = [
     "TrainingPipeline",
     "TrainingStrategy",
     "VerifierResult",
+    "analyze_failures",
     "load_snapshot",
     "recommend_major_nodes",
     "route_review_items",
