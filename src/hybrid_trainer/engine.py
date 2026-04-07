@@ -12,6 +12,7 @@ from .human_review import HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
 from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
 from .report import DecisionDashboard, build_dashboard
+from .reward_drift import RewardDriftReport, compute_reward_drift
 from .review_router import RoutedReviewBatch, route_review_items
 from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
@@ -200,3 +201,17 @@ class TrainingEngine:
             payload=dashboard.to_dict(),
         )
         return dashboard
+
+
+    def analyze_reward_drift(self) -> RewardDriftReport:
+        report = compute_reward_drift(self.pipeline.history)
+        self.tracker.track(
+            event_type="reward_drift_analyzed",
+            payload={
+                "total": report.total,
+                "approve": report.approve,
+                "review_or_block": report.review_or_block,
+                "drift_index": report.drift_index,
+            },
+        )
+        return report

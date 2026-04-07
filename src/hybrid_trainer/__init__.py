@@ -11,6 +11,7 @@ from .generation import TaskGenerator, TaskSample
 from .human_review import HumanReviewDecision, HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
 from .reward_policy import RewardPolicy
+from .reward_drift import RewardDriftReport, compute_reward_drift
 from .report import DecisionDashboard, build_dashboard
 from .review_router import RoutedReviewBatch, route_review_items
 from .pipeline import (
@@ -47,6 +48,7 @@ __all__ = [
     "IterationReport",
     "NodeTriggerRecommendation",
     "PipelineConfig",
+    "RewardDriftReport",
     "RewardPolicy",
     "RoutedReviewBatch",
     "SimpleVerifier",
@@ -60,6 +62,7 @@ __all__ = [
     "VerifierResult",
     "analyze_failures",
     "build_dashboard",
+    "compute_reward_drift",
     "load_snapshot",
     "recommend_major_nodes",
     "route_review_items",

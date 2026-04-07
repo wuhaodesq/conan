@@ -32,6 +32,7 @@ def run(args: list[str] | None = None) -> Path:
     engine.run_cycles(ns.start, ns.end, node)
 
     dashboard = engine.generate_dashboard()
+    drift = engine.analyze_reward_drift()
     strategy_switch = engine.maybe_switch_strategy()
     curriculum_adv = engine.maybe_advance_curriculum()
 
@@ -39,6 +40,12 @@ def run(args: list[str] | None = None) -> Path:
         "range": {"start": ns.start, "end": ns.end},
         "node": ns.node,
         "dashboard": dashboard.to_dict(),
+        "reward_drift": {
+            "total": drift.total,
+            "approve": drift.approve,
+            "review_or_block": drift.review_or_block,
+            "drift_index": drift.drift_index,
+        },
         "strategy": {
             "current": engine.strategy_manager.current.value,
             "switched": strategy_switch is not None,
