@@ -42,6 +42,7 @@
 │       └── verifier.py
 └── tests/
     ├── test_cli.py
+    ├── test_cli_artifacts.py
     ├── test_curriculum.py
     ├── test_engine.py
     ├── test_active_learning.py
@@ -65,6 +66,7 @@
 2. 安装开发依赖（可选）：`pip install pytest`
 3. 运行测试：`pytest -q`
 4. 运行模拟：`python -m hybrid_trainer.cli --start 1 --end 10`
+5. 导出事件/状态：`python -m hybrid_trainer.cli --events-output artifacts/events.jsonl --state-output artifacts/state.json`
 
 ## 当前已完成的开发
 
@@ -86,6 +88,7 @@
 - 失败模式诊断：支持按 taxonomy 统计低分阻断/策略阻断/验证器复核等失败类型。
 - 决策看板：支持聚合 metrics/failures/recommendations 生成可视化友好的 dashboard 数据。
 - Reward 漂移分析：支持计算 drift index 并输出到运行摘要。
+- 工件导出：CLI 支持额外导出事件 JSONL 与运行状态快照 JSON。
 
 ## 下一步开发方向
 

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .engine import TrainingEngine
 from .pipeline import DecisionNode
+from .state import save_snapshot
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -20,6 +21,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="decision node used during simulation",
     )
     parser.add_argument("--output", type=str, default="artifacts/run_summary.json", help="summary output path")
+    parser.add_argument("--events-output", type=str, default="", help="optional events JSONL export path")
+    parser.add_argument("--state-output", type=str, default="", help="optional state snapshot JSON path")
     return parser
 
 
@@ -59,6 +62,13 @@ def run(args: list[str] | None = None) -> Path:
     output = Path(ns.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+
+    if ns.events_output:
+        engine.tracker.export_jsonl(ns.events_output)
+
+    if ns.state_output:
+        save_snapshot(engine.snapshot_state(), ns.state_output)
+
     return output
 
 
