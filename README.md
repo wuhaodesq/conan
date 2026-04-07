@@ -23,6 +23,7 @@
 │       ├── __init__.py
 │       ├── active_learning.py
 │       ├── cli.py
+│       ├── cost.py
 │       ├── curriculum.py
 │       ├── engine.py
 │       ├── evaluation.py
@@ -43,6 +44,7 @@
 └── tests/
     ├── test_cli.py
     ├── test_cli_artifacts.py
+    ├── test_cost.py
     ├── test_curriculum.py
     ├── test_engine.py
     ├── test_active_learning.py
@@ -89,6 +91,7 @@
 - 决策看板：支持聚合 metrics/failures/recommendations 生成可视化友好的 dashboard 数据。
 - Reward 漂移分析：支持计算 drift index 并输出到运行摘要。
 - 工件导出：CLI 支持额外导出事件 JSONL 与运行状态快照 JSON。
+- 成本分析：支持估算自动评估与人工复核成本并输出到运行摘要。
 
 ## 下一步开发方向
 

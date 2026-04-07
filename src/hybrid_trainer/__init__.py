@@ -2,6 +2,7 @@
 
 from .active_learning import ActiveLearningCandidate, select_uncertain_samples
 from .cli import run as run_cli
+from .cost import CostReport, estimate_cost
 from .curriculum import CurriculumAdvanceRecord, CurriculumManager, CurriculumStage
 from .engine import CycleResult, TrainingEngine
 from .evaluation import AutoEvaluator, EvaluationResult
@@ -29,6 +30,7 @@ from .verifier import SimpleVerifier, VerifierResult
 __all__ = [
     "ActiveLearningCandidate",
     "AutoEvaluator",
+    "CostReport",
     "CurriculumAdvanceRecord",
     "CurriculumManager",
     "CurriculumStage",
@@ -63,6 +65,7 @@ __all__ = [
     "analyze_failures",
     "build_dashboard",
     "compute_reward_drift",
+    "estimate_cost",
     "load_snapshot",
     "recommend_major_nodes",
     "route_review_items",

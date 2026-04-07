@@ -36,6 +36,7 @@ def run(args: list[str] | None = None) -> Path:
 
     dashboard = engine.generate_dashboard()
     drift = engine.analyze_reward_drift()
+    cost = engine.analyze_cost()
     strategy_switch = engine.maybe_switch_strategy()
     curriculum_adv = engine.maybe_advance_curriculum()
 
@@ -48,6 +49,12 @@ def run(args: list[str] | None = None) -> Path:
             "approve": drift.approve,
             "review_or_block": drift.review_or_block,
             "drift_index": drift.drift_index,
+        },
+        "cost": {
+            "total_iterations": cost.total_iterations,
+            "auto_evaluation_cost": cost.auto_evaluation_cost,
+            "human_review_cost": cost.human_review_cost,
+            "total_cost": cost.total_cost,
         },
         "strategy": {
             "current": engine.strategy_manager.current.value,

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .active_learning import ActiveLearningCandidate, select_uncertain_samples
+from .cost import CostReport, estimate_cost
 from .curriculum import CurriculumAdvanceRecord, CurriculumManager
 from .evaluation import AutoEvaluator
 from .experiment import ExperimentTracker
@@ -215,3 +216,17 @@ class TrainingEngine:
             },
         )
         return report
+
+
+    def analyze_cost(self) -> CostReport:
+        cost = estimate_cost(self.summarize_metrics())
+        self.tracker.track(
+            event_type="cost_analyzed",
+            payload={
+                "total_iterations": cost.total_iterations,
+                "auto_evaluation_cost": cost.auto_evaluation_cost,
+                "human_review_cost": cost.human_review_cost,
+                "total_cost": cost.total_cost,
+            },
+        )
+        return cost
