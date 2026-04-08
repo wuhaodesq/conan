@@ -16,6 +16,7 @@ from .human_review import (
     HumanReviewQueue,
     load_review_decisions,
     save_review_batch,
+    save_review_decisions,
 )
 from .metrics import DecisionMetrics, summarize_decisions
 from .runtime_config import RuntimeConfig, load_runtime_config
@@ -34,6 +35,7 @@ from .pipeline import (
 )
 from .state import EngineStateSnapshot, load_snapshot, save_snapshot
 from .strategy import StrategyManager, StrategySwitchRecord, TrainingStrategy
+from .terminal_ui import collect_review_decisions, render_decision_console, render_review_batch
 from .training_execution import (
     SimulatedTrainingExecutor,
     TrainingExecutionRequest,
@@ -93,14 +95,18 @@ __all__ = [
     "build_dashboard",
     "compute_reward_drift",
     "estimate_cost",
+    "collect_review_decisions",
     "load_review_decisions",
     "load_runtime_config",
     "load_snapshot",
     "load_task_samples",
     "recommend_major_nodes",
+    "render_decision_console",
+    "render_review_batch",
     "route_review_items",
     "run_cli",
     "save_review_batch",
+    "save_review_decisions",
     "save_decision_console",
     "save_snapshot",
     "save_training_execution_result",

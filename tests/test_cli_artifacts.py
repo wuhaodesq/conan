@@ -61,3 +61,31 @@ def test_cli_can_export_events_and_state(tmp_path) -> None:
     assert "policy" in console_data
     assert events.read_text(encoding="utf-8").strip() != ""
     assert json.loads(state.read_text(encoding="utf-8"))["strategy"] in {"sft", "rl", "dpo"}
+
+
+def test_cli_interactive_review_can_save_decisions(monkeypatch, tmp_path) -> None:
+    summary = tmp_path / "summary.json"
+    decisions = tmp_path / "interactive_decisions.json"
+    answers = iter(["approve", "accepted by reviewer"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+    run([
+        "--start",
+        "1",
+        "--end",
+        "1",
+        "--interactive-review",
+        "--review-budget",
+        "1",
+        "--reviewer",
+        "alice",
+        "--review-decisions-output",
+        str(decisions),
+        "--output",
+        str(summary),
+    ])
+
+    data = json.loads(summary.read_text(encoding="utf-8"))
+    saved = json.loads(decisions.read_text(encoding="utf-8"))
+    assert data["human_review"]["resolved"] == 1
+    assert saved["decisions"][0]["reviewer"] == "alice"

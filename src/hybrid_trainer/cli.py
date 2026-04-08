@@ -10,9 +10,10 @@ from .pipeline import DecisionNode, PipelineConfig, TrainingPipeline
 from .runtime_config import RuntimeConfig, load_runtime_config
 from .decision_console import save_decision_console
 from .generation import DatasetTaskGenerator, TaskGenerator
-from .human_review import load_review_decisions
+from .human_review import load_review_decisions, save_review_batch, save_review_decisions
 from .state import save_snapshot
 from .strategy import TrainingStrategy
+from .terminal_ui import collect_review_decisions, render_decision_console, render_review_batch
 from .verifier import ReferenceAnswerVerifier, SimpleVerifier
 
 
@@ -32,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--training-output", type=str, default="", help="optional training execution JSON path")
     parser.add_argument("--task-dataset", type=str, default="", help="optional JSON/JSONL task dataset path")
     parser.add_argument("--review-batch-output", type=str, default="", help="optional pending review batch JSON path")
+    parser.add_argument("--review-decisions-output", type=str, default="", help="optional review decisions JSON output path")
     parser.add_argument(
         "--review-decisions-input",
         type=str,
@@ -41,6 +43,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--events-output", type=str, default="", help="optional events JSONL export path")
     parser.add_argument("--state-output", type=str, default="", help="optional state snapshot JSON path")
     parser.add_argument("--execute-training", action="store_true", help="run the current training strategy executor")
+    parser.add_argument("--print-console", action="store_true", help="render the decision console to stdout")
+    parser.add_argument("--print-review-batch", action="store_true", help="render the selected review batch to stdout")
+    parser.add_argument("--interactive-review", action="store_true", help="collect human review decisions interactively")
+    parser.add_argument("--reviewer", type=str, default="cli_reviewer", help="reviewer name for interactive decisions")
     parser.add_argument(
         "--training-strategy",
         type=str,
@@ -162,6 +168,28 @@ def run(args: list[str] | None = None) -> Path:
     if ns.review_decisions_input:
         engine.apply_review_decisions(load_review_decisions(ns.review_decisions_input))
 
+    review_batch = None
+    if ns.review_batch_output or ns.print_review_batch or ns.interactive_review:
+        review_batch = engine.get_review_batch(ns.review_budget)
+        if ns.review_batch_output:
+            save_review_batch(review_batch.items, ns.review_batch_output, budget=review_batch.budget)
+            engine.tracker.track(
+                event_type="review_batch_exported",
+                payload={
+                    "path": ns.review_batch_output,
+                    "budget": review_batch.budget,
+                    "selected": [item.iteration for item in review_batch.items],
+                },
+            )
+        if ns.print_review_batch:
+            print(render_review_batch(review_batch), end="")
+        if ns.interactive_review:
+            decisions = collect_review_decisions(review_batch, reviewer=ns.reviewer)
+            if ns.review_decisions_output:
+                save_review_decisions(decisions, ns.review_decisions_output)
+            if decisions:
+                engine.apply_review_decisions(decisions)
+
     dashboard = engine.generate_dashboard()
     drift = engine.analyze_reward_drift()
     cost = engine.analyze_cost()
@@ -212,16 +240,18 @@ def run(args: list[str] | None = None) -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    if ns.review_batch_output:
-        engine.export_review_batch(ns.review_batch_output, budget=ns.review_budget)
-
-    if ns.console_output:
+    console = None
+    if ns.console_output or ns.print_console:
         console = engine.generate_decision_console(
             review_budget=ns.review_budget,
             active_learning_limit=ns.active_learning_limit,
             recent_event_limit=ns.recent_events_limit,
         )
+
+    if ns.console_output and console is not None:
         save_decision_console(console, ns.console_output)
+    if ns.print_console and console is not None:
+        print(render_decision_console(console), end="")
 
     if ns.events_output:
         engine.tracker.export_jsonl(ns.events_output)

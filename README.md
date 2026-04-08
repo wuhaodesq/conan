@@ -46,6 +46,7 @@
 │       ├── search.py
 │       ├── state.py
 │       ├── strategy.py
+│       ├── terminal_ui.py
 │       ├── training_execution.py
 │       ├── triggers.py
 │       └── verifier.py
@@ -70,6 +71,7 @@
     ├── test_reward_policy.py
     ├── test_state.py
     ├── test_strategy.py
+    ├── test_terminal_ui.py
     ├── test_training_execution.py
     ├── test_triggers.py
     ├── test_verifier.py
@@ -88,6 +90,7 @@
 8. 导出待审批次并回填人工结论：`python -m hybrid_trainer.cli --review-batch-output artifacts/review_batch.json --review-decisions-input artifacts/review_decisions.json`
 9. 执行训练器并导出训练工件：`python -m hybrid_trainer.cli --execute-training --training-output artifacts/training_execution.json`
 10. 使用任务数据集与参考答案 verifier：`python -m hybrid_trainer.cli --task-dataset examples/task_dataset.json --reference-verifier`
+11. 终端交互式人工审批：`python -m hybrid_trainer.cli --print-console --print-review-batch --interactive-review --reviewer alice`
 
 ## 当前已完成的开发
 
@@ -118,7 +121,10 @@
 - 审批回填流：支持导出 review batch、导入人工结论 JSON，并在决策台与运行摘要中回填 resolved 状态。
 - 训练执行器闭环：支持按当前 SFT/RL/DPO 策略执行模拟训练任务，并将结果写入训练工件、运行摘要与实验事件日志。
 - 数据接入型 generator/verifier：支持从 JSON/JSONL 任务集加载任务样本，并使用参考答案校验式 verifier 驱动更真实的任务验证。
+- 终端交互式决策台：支持将 console/review batch 渲染为人可读文本，并在 CLI 中逐条录入人工审批结论。
 
 ## 下一步开发方向
 
-- 增加人工决策台交互界面与审批回填流程。
+- 可视化 Web/桌面决策台。
+- 多评审人一致性与冲突仲裁。
+- 接入更真实的外部自动评估器与训练后端。

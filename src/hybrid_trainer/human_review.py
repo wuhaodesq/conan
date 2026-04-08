@@ -96,6 +96,16 @@ def save_review_batch(items: list[HumanReviewItem], path: str, budget: int) -> P
     return output
 
 
+def save_review_decisions(decisions: list[HumanReviewDecision], path: str) -> Path:
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "decisions": [item.to_dict() for item in decisions],
+    }
+    output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return output
+
+
 def load_review_decisions(path: str) -> list[HumanReviewDecision]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     items = payload.get("decisions", payload)
