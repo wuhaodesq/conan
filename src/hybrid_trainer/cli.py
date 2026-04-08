@@ -16,6 +16,13 @@ from .runtime_config import RuntimeConfig, load_runtime_config
 from .decision_console import save_decision_console
 from .human_review import load_review_decisions, save_review_batch, save_review_decisions
 from .review_consensus import save_review_consensus
+from .review_session import (
+    ReviewSession,
+    export_review_session_decisions,
+    load_review_decision_payload,
+    load_review_session,
+    save_review_session,
+)
 from .review_web import save_review_workbench_html
 from .state import save_snapshot
 from .strategy import TrainingStrategy
@@ -40,6 +47,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--console-output", type=str, default="", help="optional decision console JSON path")
     parser.add_argument("--console-html-output", type=str, default="", help="optional decision console HTML path")
     parser.add_argument("--review-web-output", type=str, default="", help="optional review workbench HTML path")
+    parser.add_argument("--review-session-output", type=str, default="", help="optional persistent review session JSON path")
+    parser.add_argument("--review-session-input", type=str, default="", help="optional persistent review session JSON path to load or update")
+    parser.add_argument(
+        "--review-session-export-decisions",
+        type=str,
+        default="",
+        help="optional path to export aggregated reviewer decisions from a review session",
+    )
+    parser.add_argument("--review-session-id", type=str, default="", help="optional review session id override")
     parser.add_argument("--training-output", type=str, default="", help="optional training execution JSON path")
     parser.add_argument("--task-dataset", type=str, default="", help="optional JSON/JSONL task dataset path")
     parser.add_argument(
@@ -319,8 +335,22 @@ def run(args: list[str] | None = None) -> Path:
     node = DecisionNode(ns.node)
     engine.run_cycles(ns.start, ns.end, node)
 
+    review_session = None
+    if ns.review_session_input:
+        review_session = load_review_session(ns.review_session_input)
+
     if ns.review_decisions_input:
         loaded_decisions = load_review_decisions(ns.review_decisions_input)
+        if review_session is not None:
+            session_decisions, session_role = load_review_decision_payload(ns.review_decisions_input)
+            for reviewer in sorted({item.reviewer for item in session_decisions}):
+                reviewer_decisions = [item for item in session_decisions if item.reviewer == reviewer]
+                review_session.sync_reviewer_submission(
+                    reviewer=reviewer,
+                    role=session_role or ns.review_role,
+                    decisions=reviewer_decisions,
+                )
+            save_review_session(review_session, ns.review_session_input)
         duplicate_iterations = len({item.iteration for item in loaded_decisions}) != len(loaded_decisions)
         if ns.review_consensus_min_reviewers > 1 or duplicate_iterations:
             min_reviewers = max(ns.review_consensus_min_reviewers, 2 if duplicate_iterations else 1)
@@ -331,7 +361,13 @@ def run(args: list[str] | None = None) -> Path:
             engine.apply_review_decisions(loaded_decisions)
 
     review_batch = None
-    if ns.review_batch_output or ns.print_review_batch or ns.interactive_review or ns.review_web_output:
+    if (
+        ns.review_batch_output
+        or ns.print_review_batch
+        or ns.interactive_review
+        or ns.review_web_output
+        or ns.review_session_output
+    ):
         review_batch = engine.get_review_batch(ns.review_budget)
         if ns.review_batch_output:
             save_review_batch(review_batch.items, ns.review_batch_output, budget=review_batch.budget)
@@ -416,7 +452,13 @@ def run(args: list[str] | None = None) -> Path:
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     console = None
-    if ns.console_output or ns.console_html_output or ns.print_console or ns.review_web_output:
+    if (
+        ns.console_output
+        or ns.console_html_output
+        or ns.print_console
+        or ns.review_web_output
+        or ns.review_session_output
+    ):
         console = engine.generate_decision_console(
             review_budget=ns.review_budget,
             active_learning_limit=ns.active_learning_limit,
@@ -448,6 +490,33 @@ def run(args: list[str] | None = None) -> Path:
                 "selected": [item.iteration for item in review_batch.items],
             },
         )
+    if ns.review_session_output and console is not None and review_batch is not None:
+        review_session = ReviewSession.create(
+            console=console,
+            batch=review_batch,
+            permission_policy=_resolve_review_permission_policy(ns),
+            session_id=ns.review_session_id,
+        )
+        save_review_session(review_session, ns.review_session_output)
+        engine.tracker.track(
+            event_type="review_session_created",
+            payload={
+                "path": ns.review_session_output,
+                "session_id": review_session.session_id,
+                "budget": review_batch.budget,
+                "selected": [item.iteration for item in review_batch.items],
+            },
+        )
+    if ns.review_session_export_decisions and review_session is not None:
+        export_review_session_decisions(review_session, ns.review_session_export_decisions)
+        engine.tracker.track(
+            event_type="review_session_decisions_exported",
+            payload={
+                "path": ns.review_session_export_decisions,
+                "session_id": review_session.session_id,
+                "decision_count": len(review_session.all_decisions()),
+            },
+        )
 
     if ns.events_output:
         engine.tracker.export_jsonl(ns.events_output)
@@ -457,6 +526,11 @@ def run(args: list[str] | None = None) -> Path:
 
     if ns.job_orchestration_output and engine.job_orchestrator is not None:
         save_job_orchestrator(engine.job_orchestrator, ns.job_orchestration_output)
+
+    if review_session is not None:
+        payload = json.loads(output.read_text(encoding="utf-8"))
+        payload["review_session"] = review_session.summary()
+        output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     return output
 

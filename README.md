@@ -52,6 +52,7 @@
 │       ├── reward_policy.py
 │       ├── review_consensus.py
 │       ├── review_router.py
+│       ├── review_session.py
 │       ├── review_web.py
 │       ├── runtime_config.py
 │       ├── search.py
@@ -82,6 +83,7 @@
     ├── test_search.py
     ├── test_report.py
     ├── test_review_consensus.py
+    ├── test_review_session.py
     ├── test_review_web.py
     ├── test_reward_drift.py
     ├── test_reward_policy.py
@@ -113,6 +115,7 @@
 14. 接入外部评估器与训练后端：`python -m hybrid_trainer.cli --task-dataset examples/task_dataset.json --reference-verifier --external-evaluator-cmd "[\"python\", \"examples/external_evaluator.py\"]" --external-training-cmd "[\"python\", \"examples/external_trainer.py\"]" --execute-training --training-output artifacts/training_execution.json`
 15. 使用服务注册表与作业编排：`python -m hybrid_trainer.cli --model-service-config examples/model_services.json --generator-service generator.example --evaluator-service evaluator.example --training-service training.example --reference-verifier --job-orchestration-output artifacts/jobs.json --execute-training --training-output artifacts/training_execution.json`
 16. 导出带权限控制的 Web 审批页：`python -m hybrid_trainer.cli --review-web-output artifacts/review_workbench.html --reviewer alice --review-role triager --review-permissions-config examples/review_permissions.json --review-budget 3 --output artifacts/run_summary.json`
+17. 创建并同步持久化 review session：`python -m hybrid_trainer.cli --review-session-output artifacts/review_session.json --review-session-id session-alpha --review-budget 3 --output artifacts/run_summary.json`
 
 ## 当前已完成的开发
 
@@ -149,8 +152,8 @@
 - 外部命令后端：支持通过 stdin/stdout JSON 协议接入更真实的自动评估器与训练执行器，并保留运行摘要、训练工件与 CLI 工作流。
 - 服务注册表与作业编排：支持通过命名 generator/evaluator/training 服务接入外部模型能力，并导出带依赖关系的任务分发与训练作业日志。
 - Web 审批回填与权限管理：支持导出可直接下载 `review_decisions.json` 的审批工作台，并通过角色策略控制可见性与可执行决策范围。
+- 持久化 review session：支持保存审批 session、同步多 reviewer 的提交状态，并导出聚合后的 `review_decisions.json` 供 CLI 共识或回填流程复用。
 
 ## 新的探索方向
 
-- 接入持久化审批后端与多用户协作状态同步。
 - 将 Web 审批页升级为带鉴权和审计日志的服务端应用。

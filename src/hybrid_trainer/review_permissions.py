@@ -45,6 +45,11 @@ class ReviewRolePolicy:
 class ReviewPermissionPolicy:
     roles: dict[str, ReviewRolePolicy] = field(default_factory=dict)
 
+    def to_dict(self) -> dict:
+        return {
+            "roles": [item.to_dict() for item in self.roles.values()],
+        }
+
     @classmethod
     def default(cls) -> "ReviewPermissionPolicy":
         return cls(
@@ -74,14 +79,18 @@ class ReviewPermissionPolicy:
         )
 
     @classmethod
-    def from_file(cls, path: str) -> "ReviewPermissionPolicy":
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    def from_dict(cls, payload: dict) -> "ReviewPermissionPolicy":
         items = payload.get("roles", payload)
         policy = cls()
         for item in items:
             role_policy = ReviewRolePolicy.from_dict(item)
             policy.roles[role_policy.role] = role_policy
         return policy
+
+    @classmethod
+    def from_file(cls, path: str) -> "ReviewPermissionPolicy":
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls.from_dict(payload)
 
     def resolve(self, role: str) -> ReviewRolePolicy:
         if role not in self.roles:
