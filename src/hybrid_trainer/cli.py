@@ -8,6 +8,8 @@ from pathlib import Path
 from .engine import TrainingEngine
 from .pipeline import DecisionNode, PipelineConfig, TrainingPipeline
 from .runtime_config import RuntimeConfig, load_runtime_config
+from .decision_console import save_decision_console
+from .human_review import load_review_decisions
 from .state import save_snapshot
 
 
@@ -23,6 +25,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="decision node used during simulation",
     )
     parser.add_argument("--output", type=str, default="artifacts/run_summary.json", help="summary output path")
+    parser.add_argument("--console-output", type=str, default="", help="optional decision console JSON path")
+    parser.add_argument("--review-batch-output", type=str, default="", help="optional pending review batch JSON path")
+    parser.add_argument(
+        "--review-decisions-input",
+        type=str,
+        default="",
+        help="optional human review decisions JSON path to apply before exporting artifacts",
+    )
     parser.add_argument("--events-output", type=str, default="", help="optional events JSONL export path")
     parser.add_argument("--state-output", type=str, default="", help="optional state snapshot JSON path")
     parser.add_argument("--config", type=str, default="", help="optional runtime JSON config path")
@@ -58,6 +68,19 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="override approve ratio threshold for curriculum shift recommendation",
+    )
+    parser.add_argument("--review-budget", type=int, default=5, help="review budget for decision console export")
+    parser.add_argument(
+        "--active-learning-limit",
+        type=int,
+        default=5,
+        help="active learning sample count for decision console export",
+    )
+    parser.add_argument(
+        "--recent-events-limit",
+        type=int,
+        default=10,
+        help="recent event count for decision console export",
     )
     return parser
 
@@ -104,6 +127,9 @@ def run(args: list[str] | None = None) -> Path:
     node = DecisionNode(ns.node)
     engine.run_cycles(ns.start, ns.end, node)
 
+    if ns.review_decisions_input:
+        engine.apply_review_decisions(load_review_decisions(ns.review_decisions_input))
+
     dashboard = engine.generate_dashboard()
     drift = engine.analyze_reward_drift()
     cost = engine.analyze_cost()
@@ -114,6 +140,10 @@ def run(args: list[str] | None = None) -> Path:
         "range": {"start": ns.start, "end": ns.end},
         "node": ns.node,
         "config": runtime_config.to_dict(),
+        "human_review": {
+            "pending": len(engine.review_queue.pending),
+            "resolved": len(engine.review_queue.resolved),
+        },
         "dashboard": dashboard.to_dict(),
         "reward_drift": {
             "total": drift.total,
@@ -139,7 +169,18 @@ def run(args: list[str] | None = None) -> Path:
 
     output = Path(ns.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+    output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    if ns.review_batch_output:
+        engine.export_review_batch(ns.review_batch_output, budget=ns.review_budget)
+
+    if ns.console_output:
+        console = engine.generate_decision_console(
+            review_budget=ns.review_budget,
+            active_learning_limit=ns.active_learning_limit,
+            recent_event_limit=ns.recent_events_limit,
+        )
+        save_decision_console(console, ns.console_output)
 
     if ns.events_output:
         engine.tracker.export_jsonl(ns.events_output)

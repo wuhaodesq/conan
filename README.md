@@ -27,6 +27,7 @@
 │       ├── cli.py
 │       ├── cost.py
 │       ├── curriculum.py
+│       ├── decision_console.py
 │       ├── engine.py
 │       ├── evaluation.py
 │       ├── experiment.py
@@ -51,6 +52,7 @@
     ├── test_cli_artifacts.py
     ├── test_cost.py
     ├── test_curriculum.py
+    ├── test_decision_console.py
     ├── test_engine.py
     ├── test_active_learning.py
     ├── test_experiment_tracker.py
@@ -78,6 +80,8 @@
 4. 运行模拟：`python -m hybrid_trainer.cli --start 1 --end 10`
 5. 导出事件/状态：`python -m hybrid_trainer.cli --events-output artifacts/events.jsonl --state-output artifacts/state.json`
 6. 使用运行时配置：`python -m hybrid_trainer.cli --config examples/runtime_config.json`
+7. 导出人工决策台：`python -m hybrid_trainer.cli --console-output artifacts/decision_console.json`
+8. 导出待审批次并回填人工结论：`python -m hybrid_trainer.cli --review-batch-output artifacts/review_batch.json --review-decisions-input artifacts/review_decisions.json`
 
 ## 当前已完成的开发
 
@@ -104,9 +108,11 @@
 - Reward 策略注册表：支持策略版本注册与激活切换，便于回溯与灰度。
 - 多路径搜索：支持在单轮中采样多条候选路径并选择最优路径。
 - 运行时配置：支持通过 JSON/CLI 覆盖 reward policy 与节点触发规则，并将配置写入运行摘要。
+- 人工决策台 v1：支持聚合 review 队列、失败诊断、主动学习候选、策略/课程/策略版本与近期事件，并导出 JSON 工件。
+- 审批回填流：支持导出 review batch、导入人工结论 JSON，并在决策台与运行摘要中回填 resolved 状态。
 
 ## 下一步开发方向
 
 - 接入真实 task generator/verifier。
 - 打通 SFT/RL 训练执行器与实验日志。
-- 增加人工决策台。
+- 增加人工决策台交互界面与审批回填流程。

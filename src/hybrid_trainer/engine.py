@@ -5,17 +5,30 @@ from dataclasses import dataclass, field
 from .active_learning import ActiveLearningCandidate, select_uncertain_samples
 from .cost import CostReport, estimate_cost
 from .curriculum import CurriculumAdvanceRecord, CurriculumManager
+from .decision_console import (
+    ActiveLearningConsole,
+    CurriculumConsoleView,
+    DecisionConsole,
+    MajorNodeRecommendationView,
+    PolicyConsoleView,
+    PolicyVersionView,
+    RecentEventView,
+    ReviewQueueConsole,
+    ReviewQueueItemView,
+    StrategyConsoleView,
+)
 from .evaluation import AutoEvaluator
 from .experiment import ExperimentTracker
 from .failure_analysis import FailureTaxonomy, analyze_failures
 from .generation import TaskGenerator, TaskSample
-from .human_review import HumanReviewItem, HumanReviewQueue
+from .human_review import HumanReviewDecision, HumanReviewItem, HumanReviewQueue, save_review_batch
 from .metrics import DecisionMetrics, summarize_decisions
 from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
 from .policy_registry import PolicyRegistry
 from .report import DecisionDashboard, build_dashboard
 from .reward_drift import RewardDriftReport, compute_reward_drift
-from .review_router import RoutedReviewBatch, route_review_items
+from .review_router import RoutedReviewBatch, route_review_items, score_review_risk
+from .runtime_config import RuntimeConfig
 from .search import PathCandidate, select_best_path
 from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
@@ -212,6 +225,38 @@ class TrainingEngine:
         )
         return batch
 
+    def export_review_batch(self, path: str, budget: int) -> None:
+        batch = self.get_review_batch(budget)
+        save_review_batch(batch.items, path, budget=batch.budget)
+        self.tracker.track(
+            event_type="review_batch_exported",
+            payload={
+                "path": path,
+                "budget": budget,
+                "selected": [item.iteration for item in batch.items],
+            },
+        )
+
+    def apply_review_decisions(self, decisions: list[HumanReviewDecision]) -> list[HumanReviewDecision]:
+        resolved = [
+            self.review_queue.resolve(
+                iteration=item.iteration,
+                final_decision=item.final_decision,
+                reviewer=item.reviewer,
+                note=item.note,
+            )
+            for item in decisions
+        ]
+        self.tracker.track(
+            event_type="review_decisions_applied",
+            payload={
+                "iterations": [item.iteration for item in resolved],
+                "final_decisions": [item.final_decision.value for item in resolved],
+                "count": len(resolved),
+            },
+        )
+        return resolved
+
     def collect_active_learning_candidates(self, limit: int) -> list[ActiveLearningCandidate]:
         threshold = self.pipeline.config.reward_policy.approve_threshold
         candidates = select_uncertain_samples(self.pipeline.history, threshold=threshold, limit=limit)
@@ -249,6 +294,125 @@ class TrainingEngine:
             payload=dashboard.to_dict(),
         )
         return dashboard
+
+    def generate_decision_console(
+        self,
+        review_budget: int = 5,
+        active_learning_limit: int = 5,
+        recent_event_limit: int = 10,
+    ) -> DecisionConsole:
+        metrics = summarize_decisions(self.pipeline.history)
+        failures = analyze_failures(self.pipeline.history)
+        recommendations = recommend_major_nodes(metrics, self.trigger_rules)
+        dashboard = build_dashboard(metrics, failures, recommendations)
+
+        review_batch = route_review_items(self.review_queue.pending, budget=review_budget)
+        review_queue = ReviewQueueConsole(
+            pending_count=len(self.review_queue.pending),
+            resolved_count=len(self.review_queue.resolved),
+            budget=review_batch.budget,
+            prioritized_items=[
+                ReviewQueueItemView(
+                    iteration=item.iteration,
+                    node=item.node.value,
+                    auto_score=item.auto_score,
+                    auto_decision=item.auto_decision.value,
+                    risk_score=score_review_risk(item),
+                )
+                for item in review_batch.items
+            ],
+            recent_resolutions=[
+                item.to_dict()
+                for item in self.review_queue.resolved[-5:]
+            ],
+        )
+
+        threshold = self.pipeline.config.reward_policy.approve_threshold
+        active_learning = ActiveLearningConsole(
+            threshold=threshold,
+            limit=active_learning_limit,
+            candidates=select_uncertain_samples(
+                self.pipeline.history,
+                threshold=threshold,
+                limit=active_learning_limit,
+            ),
+        )
+
+        policy = PolicyConsoleView(
+            active_version=self.policy_registry.active_version,
+            available_versions=[
+                PolicyVersionView(
+                    version=record.version,
+                    note=record.note,
+                    is_active=record.version == self.policy_registry.active_version,
+                    policy=record.policy.to_dict(),
+                )
+                for record in self.policy_registry.versions.values()
+            ],
+        )
+
+        recommended_strategy, strategy_reason = self.strategy_manager.recommend(metrics)
+        next_stage = None
+        next_stage_min_approve_ratio = None
+        if self.curriculum_manager.current_index < len(self.curriculum_manager.stages) - 1:
+            upcoming_stage = self.curriculum_manager.stages[self.curriculum_manager.current_index + 1]
+            next_stage = upcoming_stage.name
+            next_stage_min_approve_ratio = upcoming_stage.min_approve_ratio
+
+        recent_events = self.tracker.events[-recent_event_limit:] if recent_event_limit > 0 else []
+        console = DecisionConsole(
+            dashboard=dashboard,
+            major_node_recommendations=[
+                MajorNodeRecommendationView(node=item.node.value, reason=item.reason)
+                for item in recommendations
+            ],
+            review_queue=review_queue,
+            active_learning=active_learning,
+            reward_drift=compute_reward_drift(self.pipeline.history),
+            cost=estimate_cost(metrics),
+            policy=policy,
+            strategy=StrategyConsoleView(
+                current=self.strategy_manager.current.value,
+                recommended=recommended_strategy.value,
+                reason=strategy_reason,
+                history=list(self.strategy_manager.history),
+            ),
+            curriculum=CurriculumConsoleView(
+                current_stage=self.curriculum_manager.current_stage.name,
+                next_stage=next_stage,
+                next_stage_min_approve_ratio=next_stage_min_approve_ratio,
+                history=[
+                    {
+                        "from_stage": item.from_stage,
+                        "to_stage": item.to_stage,
+                        "reason": item.reason,
+                    }
+                    for item in self.curriculum_manager.history
+                ],
+            ),
+            recent_events=[
+                RecentEventView(
+                    event_type=item.event_type,
+                    timestamp=item.timestamp,
+                    payload=item.payload,
+                )
+                for item in recent_events
+            ],
+            runtime_config=RuntimeConfig(
+                reward_policy=self.pipeline.config.reward_policy,
+                trigger_rules=self.trigger_rules,
+            ).to_dict(),
+        )
+        self.tracker.track(
+            event_type="decision_console_generated",
+            payload={
+                "review_budget": review_budget,
+                "active_learning_limit": active_learning_limit,
+                "recent_event_limit": recent_event_limit,
+                "pending_reviews": len(self.review_queue.pending),
+            },
+        )
+        return console
 
 
     def analyze_reward_drift(self) -> RewardDriftReport:

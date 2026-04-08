@@ -1,4 +1,5 @@
 from hybrid_trainer.engine import TrainingEngine
+from hybrid_trainer.human_review import HumanReviewDecision
 from hybrid_trainer.metrics import summarize_decisions
 from hybrid_trainer.pipeline import Decision, DecisionNode
 
@@ -33,3 +34,18 @@ def test_review_resolution_and_metrics_summary() -> None:
     assert resolved.reviewer == "alice"
     assert resolved.final_decision == Decision.APPROVE
     assert all(item.iteration != 6 for item in engine.review_queue.pending)
+
+
+def test_apply_review_decisions_updates_resolved_queue_and_tracks_event() -> None:
+    engine = TrainingEngine()
+    engine.run_cycles(1, 3, DecisionNode.FAILURE_REVIEW)
+
+    resolved = engine.apply_review_decisions([
+        HumanReviewDecision(iteration=1, final_decision=Decision.APPROVE, reviewer="alice", note="rescued"),
+        HumanReviewDecision(iteration=2, final_decision=Decision.BLOCK, reviewer="bob", note="confirmed"),
+    ])
+
+    assert len(resolved) == 2
+    assert len(engine.review_queue.pending) == 1
+    assert len(engine.review_queue.resolved) == 2
+    assert any(event.event_type == "review_decisions_applied" for event in engine.tracker.events)

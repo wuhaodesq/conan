@@ -12,7 +12,7 @@ class RoutedReviewBatch:
     budget: int
 
 
-def _risk_score(item: HumanReviewItem) -> float:
+def score_review_risk(item: HumanReviewItem) -> float:
     # Higher means should be reviewed earlier.
     base = 1.0 - item.auto_score
     if item.auto_decision == Decision.BLOCK:
@@ -24,5 +24,5 @@ def route_review_items(pending: list[HumanReviewItem], budget: int) -> RoutedRev
     if budget <= 0:
         return RoutedReviewBatch(items=[], budget=budget)
 
-    ranked = sorted(pending, key=_risk_score, reverse=True)
+    ranked = sorted(pending, key=score_review_risk, reverse=True)
     return RoutedReviewBatch(items=ranked[:budget], budget=budget)
