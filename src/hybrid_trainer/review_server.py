@@ -11,7 +11,12 @@ from urllib.parse import parse_qs, urlparse
 
 from .human_review import HumanReviewDecision
 from .review_audit import create_review_audit_event
-from .review_identity import IdentityProvider, ReviewIdentity, build_identity_provider_from_file
+from .review_identity import (
+    IdentityProvider,
+    OidcAuthorizationCodeIdentityProvider,
+    ReviewIdentity,
+    build_identity_provider_from_file,
+)
 from .review_permissions import ReviewPermissionPolicy
 from .review_session import ReviewSession
 from .review_store import ReviewStore, build_review_store
@@ -21,6 +26,7 @@ def build_review_server(
     session_path: str = "",
     auth_token: str = "",
     audit_log_path: str = "",
+    postgres_dsn: str = "",
     host: str = "127.0.0.1",
     port: int = 8000,
     store: ReviewStore | None = None,
@@ -28,7 +34,12 @@ def build_review_server(
 ) -> ThreadingHTTPServer:
     app = ReviewServerApp(
         auth_token=auth_token,
-        store=store or build_review_store(session_path=session_path, audit_log_path=audit_log_path),
+        store=store
+        or build_review_store(
+            session_path=session_path,
+            audit_log_path=audit_log_path,
+            postgres_dsn=postgres_dsn,
+        ),
         identity_provider=identity_provider,
     )
 
@@ -51,6 +62,7 @@ def serve_review_server(
     session_path: str = "",
     auth_token: str = "",
     audit_log_path: str = "",
+    postgres_dsn: str = "",
     host: str = "127.0.0.1",
     port: int = 8000,
     store: ReviewStore | None = None,
@@ -60,6 +72,7 @@ def serve_review_server(
         session_path=session_path,
         auth_token=auth_token,
         audit_log_path=audit_log_path,
+        postgres_dsn=postgres_dsn,
         host=host,
         port=port,
         store=store,
@@ -83,6 +96,12 @@ class ReviewServerApp:
 
     def handle(self, handler: BaseHTTPRequestHandler) -> None:
         parsed = urlparse(handler.path)
+        if handler.command == "GET" and parsed.path == "/api/oidc/login":
+            self._handle_oidc_login(handler, parsed)
+            return
+        if handler.command == "GET" and parsed.path == "/api/oidc/callback":
+            self._handle_oidc_callback(handler, parsed)
+            return
         identity = self._authenticate(handler, parsed)
         if identity is None:
             self._send_json(handler, HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
@@ -171,6 +190,38 @@ class ReviewServerApp:
 
         self._send_json(handler, HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
+    def _handle_oidc_login(self, handler: BaseHTTPRequestHandler, parsed) -> None:
+        provider = self._oidc_auth_code_provider()
+        if provider is None:
+            self._send_json(handler, HTTPStatus.NOT_FOUND, {"error": "oidc authorization code flow is not enabled"})
+            return
+        reviewer = _query_value(parsed, "reviewer", "web_reviewer")
+        role = _query_value(parsed, "role", "reviewer")
+        callback_url = self._build_callback_url(handler)
+        payload = provider.start_login(
+            reviewer_hint=reviewer,
+            role_hint=role,
+            redirect_uri=callback_url,
+        )
+        self._send_json(handler, HTTPStatus.OK, payload)
+
+    def _handle_oidc_callback(self, handler: BaseHTTPRequestHandler, parsed) -> None:
+        provider = self._oidc_auth_code_provider()
+        if provider is None:
+            self._send_json(handler, HTTPStatus.NOT_FOUND, {"error": "oidc authorization code flow is not enabled"})
+            return
+        code = _query_value(parsed, "code", "")
+        state = _query_value(parsed, "state", "")
+        if not code or not state:
+            self._send_json(handler, HTTPStatus.BAD_REQUEST, {"error": "code and state are required"})
+            return
+        try:
+            payload = provider.complete_login(code=code, state=state)
+        except PermissionError as exc:
+            self._send_json(handler, HTTPStatus.FORBIDDEN, {"error": str(exc)})
+            return
+        self._send_json(handler, HTTPStatus.OK, payload)
+
     def _authenticate(self, handler: BaseHTTPRequestHandler, parsed) -> ReviewIdentity | None:
         header = handler.headers.get("Authorization", "")
         if header.startswith("Bearer "):
@@ -179,6 +230,12 @@ class ReviewServerApp:
             token = _query_value(parsed, "token", "")
         if not token:
             return None
+        oidc_provider = self._oidc_auth_code_provider()
+        if oidc_provider is not None:
+            try:
+                return oidc_provider.resolve(token)
+            except PermissionError:
+                return None
         if self.identity_provider is not None:
             try:
                 return self.identity_provider.resolve(token)
@@ -192,6 +249,18 @@ class ReviewServerApp:
             display_name=reviewer,
             claims={"auth_mode": "shared-token"},
         )
+
+    def _oidc_auth_code_provider(self) -> OidcAuthorizationCodeIdentityProvider | None:
+        if isinstance(self.identity_provider, OidcAuthorizationCodeIdentityProvider):
+            return self.identity_provider
+        return None
+
+    def _build_callback_url(self, handler: BaseHTTPRequestHandler) -> str:
+        host = handler.headers.get("Host")
+        if not host:
+            server_host, server_port = handler.server.server_address  # type: ignore[attr-defined]
+            host = f"{server_host}:{server_port}"
+        return f"http://{host}/api/oidc/callback"
 
     def _read_json(self, handler: BaseHTTPRequestHandler) -> dict:
         length = int(handler.headers.get("Content-Length", "0"))
@@ -414,7 +483,7 @@ def _decision_rows(session: ReviewSession) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Serve the hybrid trainer review session web app")
-    parser.add_argument("--session", default="", help="review session JSON path or bootstrap file for SQLite store")
+    parser.add_argument("--session", default="", help="review session JSON path or bootstrap file for SQLite/PostgreSQL store")
     parser.add_argument(
         "--auth-token",
         default="",
@@ -422,7 +491,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--audit-log", default="", help="audit log JSONL path for file store mode")
     parser.add_argument("--sqlite-db", default="", help="optional SQLite database path for persisted review storage")
-    parser.add_argument("--session-id", default="", help="session id to load from SQLite store")
+    parser.add_argument("--postgres-dsn", default="", help="optional PostgreSQL DSN for persisted review storage")
+    parser.add_argument("--session-id", default="", help="session id to load from SQLite/PostgreSQL store")
     parser.add_argument(
         "--identity-provider-config",
         default="",
@@ -434,6 +504,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def build_store_from_args(ns: argparse.Namespace) -> ReviewStore:
+    if ns.postgres_dsn:
+        return build_review_store(
+            postgres_dsn=ns.postgres_dsn,
+            session_id=ns.session_id,
+            bootstrap_session_path=ns.session,
+        )
     if ns.sqlite_db:
         return build_review_store(
             sqlite_db_path=ns.sqlite_db,

@@ -1,0 +1,18 @@
+{
+  "mode": "authorization_code",
+  "authorization_endpoint": "https://idp.example.com/oauth2/authorize",
+  "token_endpoint": "https://idp.example.com/oauth2/token",
+  "userinfo_endpoint": "https://idp.example.com/oauth2/userinfo",
+  "client_id": "hybrid-trainer",
+  "client_secret": "replace-me",
+  "scope": "openid profile email",
+  "timeout_seconds": 5,
+  "refresh_margin_seconds": 30,
+  "session_cache_path": "artifacts/oidc_sessions.json",
+  "subject_claim": "sub",
+  "display_name_claim": "name",
+  "email_claim": "email",
+  "groups_claim": "groups",
+  "issuer_claim": "iss",
+  "active_claim": "active"
+}

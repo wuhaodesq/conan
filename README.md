@@ -128,6 +128,8 @@
 20. 创建带群组约束的 review session：`python -m hybrid_trainer.cli --review-session-output artifacts/review_session_identity.json --review-permissions-config examples/review_permissions_identity.json --review-budget 3 --output artifacts/run_summary.json`
 21. 启动静态身份 provider 的 review server：`python -m hybrid_trainer.review_server --identity-provider-config examples/identity_provider_static.json --session artifacts/review_session_identity.json --port 8000`，然后用 `/?token=alice-token&reviewer=alice&role=triager` 打开页面。
 22. 对接 OIDC/SSO introspection：`python -m hybrid_trainer.review_server --identity-provider-config examples/identity_provider_oidc.json --session artifacts/review_session_identity.json --port 8000`
+23. 对接 OIDC 授权码登录与刷新：`python -m hybrid_trainer.review_server --identity-provider-config examples/identity_provider_oidc_auth_code.json --session artifacts/review_session_identity.json --port 8000`，先访问 `/api/oidc/login?reviewer=alice&role=triager` 获取 `authorization_url`，完成跳转后再用返回的 `session_token` 调用 `/api/session`。
+24. 使用 PostgreSQL review server：`python -m hybrid_trainer.review_server --postgres-dsn postgresql://postgres:postgres@localhost/hybrid_trainer --session artifacts/review_session.json --session-id session-alpha --auth-token demo-token --port 8000`
 
 ## 当前已完成的开发
 
@@ -166,10 +168,10 @@
 - Web 审批回填与权限管理：支持导出可直接下载 `review_decisions.json` 的审批工作台，并通过角色策略控制可见性与可执行决策范围。
 - 持久化 review session：支持保存审批 session、同步多 reviewer 的提交状态，并导出聚合后的 `review_decisions.json` 供 CLI 共识或回填流程复用。
 - 带鉴权和审计日志的 review server：支持以 Bearer token 保护 session API、服务端决策提交与 JSONL 审计记录，使 Web 审批从静态页升级为可运行的服务端应用。
-- 数据库化 review store：支持用 SQLite 持久化 review session 与审计日志，并保留文件后端作为兼容模式。
+- 数据库化 review store：支持用 SQLite 与 PostgreSQL 持久化 review session 与审计日志，并保留文件后端作为兼容模式。
 - 身份提供方与细粒度审批权限：支持静态 token 映射与 OIDC/SSO introspection 身份解析，并按 subject/group/email/issuer 约束审批角色。
+- OIDC 授权码流程：支持 review server 发起授权、回调换取 session token，并在 access token 临近过期时自动刷新。
 
 ## 新的探索方向
 
-- 对接完整 OIDC 授权码流程与刷新令牌处理。
-- 把 review store 进一步升级为 PostgreSQL 或云对象存储后端。
+- 把 review store 进一步升级为云对象存储后端。

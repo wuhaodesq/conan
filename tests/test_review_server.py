@@ -6,7 +6,7 @@ from urllib.request import Request, urlopen
 from hybrid_trainer.engine import TrainingEngine
 from hybrid_trainer.pipeline import DecisionNode
 from hybrid_trainer.review_router import route_review_items
-from hybrid_trainer.review_server import build_review_server
+from hybrid_trainer.review_server import build_parser, build_review_server, build_store_from_args
 from hybrid_trainer.review_session import ReviewSession, load_review_session, save_review_session
 
 
@@ -93,3 +93,30 @@ def test_review_server_requires_auth_and_persists_audit_log(tmp_path) -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_review_server_parser_routes_postgres_backend(monkeypatch) -> None:
+    captured = {}
+
+    def fake_build_review_store(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr("hybrid_trainer.review_server.build_review_store", fake_build_review_store)
+
+    ns = build_parser().parse_args(
+        [
+            "--postgres-dsn",
+            "postgresql://localhost/hybrid",
+            "--session",
+            "bootstrap.json",
+            "--session-id",
+            "session-alpha",
+        ]
+    )
+    store = build_store_from_args(ns)
+
+    assert store is not None
+    assert captured["postgres_dsn"] == "postgresql://localhost/hybrid"
+    assert captured["session_id"] == "session-alpha"
+    assert captured["bootstrap_session_path"] == "bootstrap.json"

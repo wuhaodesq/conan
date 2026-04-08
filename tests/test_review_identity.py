@@ -8,6 +8,7 @@ from urllib.parse import parse_qs
 from hybrid_trainer.engine import TrainingEngine
 from hybrid_trainer.pipeline import DecisionNode
 from hybrid_trainer.review_identity import (
+    OidcAuthorizationCodeIdentityProvider,
     IntrospectionIdentityProvider,
     ReviewIdentity,
     StaticIdentityProvider,
@@ -57,6 +58,116 @@ class _IntrospectionHandler(BaseHTTPRequestHandler):
 def _start_introspection_server(identity_payloads: dict[str, dict]) -> tuple[ThreadingHTTPServer, threading.Thread]:
     server = ThreadingHTTPServer(("127.0.0.1", 0), _IntrospectionHandler)
     server.identity_payloads = identity_payloads  # type: ignore[attr-defined]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, thread
+
+
+class _OidcAuthorizationHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:  # noqa: N802
+        parsed = parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+        if self.path.startswith("/authorize"):
+            login_hint = parsed.get("login_hint", ["alice"])[0]
+            state = parsed.get("state", [""])[0]
+            redirect_uri = parsed.get("redirect_uri", [""])[0]
+            claims = self.server.claims_by_hint.get(login_hint, self.server.default_claims)  # type: ignore[attr-defined]
+            code = f"code-{len(self.server.authorization_codes) + 1}"  # type: ignore[attr-defined]
+            self.server.authorization_codes[code] = claims  # type: ignore[attr-defined]
+            separator = "&" if "?" in redirect_uri else "?"
+            location = f"{redirect_uri}{separator}code={code}&state={state}"
+            self.send_response(302)
+            self.send_header("Location", location)
+            self.end_headers()
+            return
+        if self.path.startswith("/userinfo"):
+            auth = self.headers.get("Authorization", "")
+            token = auth[len("Bearer "):] if auth.startswith("Bearer ") else ""
+            claims = self.server.access_tokens.get(token)  # type: ignore[attr-defined]
+            if claims is None:
+                self.send_response(401)
+                self.end_headers()
+                return
+            body = json.dumps(claims).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def do_POST(self) -> None:  # noqa: N802
+        if not self.path.startswith("/token"):
+            self.send_response(404)
+            self.end_headers()
+            return
+        length = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(length).decode("utf-8") if length else ""
+        payload = parse_qs(body)
+        grant_type = payload.get("grant_type", [""])[0]
+        if grant_type == "authorization_code":
+            code = payload.get("code", [""])[0]
+            claims = self.server.authorization_codes.pop(code, None)  # type: ignore[attr-defined]
+            if claims is None:
+                self.send_response(400)
+                self.end_headers()
+                return
+            access_token = f"access-{len(self.server.access_tokens) + 1}"  # type: ignore[attr-defined]
+            refresh_token = f"refresh-{len(self.server.refresh_tokens) + 1}"  # type: ignore[attr-defined]
+            self.server.access_tokens[access_token] = claims  # type: ignore[attr-defined]
+            self.server.refresh_tokens[refresh_token] = claims  # type: ignore[attr-defined]
+            response = {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "token_type": "Bearer",
+                "expires_in": self.server.expires_in_seconds,  # type: ignore[attr-defined]
+            }
+        elif grant_type == "refresh_token":
+            refresh_token = payload.get("refresh_token", [""])[0]
+            claims = self.server.refresh_tokens.get(refresh_token)  # type: ignore[attr-defined]
+            if claims is None:
+                self.send_response(400)
+                self.end_headers()
+                return
+            self.server.refresh_count += 1  # type: ignore[attr-defined]
+            access_token = f"refreshed-access-{self.server.refresh_count}"  # type: ignore[attr-defined]
+            next_refresh = f"refreshed-refresh-{self.server.refresh_count}"  # type: ignore[attr-defined]
+            self.server.access_tokens[access_token] = claims  # type: ignore[attr-defined]
+            self.server.refresh_tokens[next_refresh] = claims  # type: ignore[attr-defined]
+            response = {
+                "access_token": access_token,
+                "refresh_token": next_refresh,
+                "token_type": "Bearer",
+                "expires_in": self.server.expires_in_seconds,  # type: ignore[attr-defined]
+            }
+        else:
+            self.send_response(400)
+            self.end_headers()
+            return
+        body = json.dumps(response).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, _format: str, *_args) -> None:
+        return
+
+
+def _start_oidc_authorization_server(
+    claims_by_hint: dict[str, dict],
+    expires_in_seconds: int = 1,
+) -> tuple[ThreadingHTTPServer, threading.Thread]:
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _OidcAuthorizationHandler)
+    server.claims_by_hint = claims_by_hint  # type: ignore[attr-defined]
+    server.default_claims = next(iter(claims_by_hint.values()))  # type: ignore[attr-defined]
+    server.authorization_codes = {}  # type: ignore[attr-defined]
+    server.access_tokens = {}  # type: ignore[attr-defined]
+    server.refresh_tokens = {}  # type: ignore[attr-defined]
+    server.refresh_count = 0  # type: ignore[attr-defined]
+    server.expires_in_seconds = expires_in_seconds  # type: ignore[attr-defined]
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server, thread
@@ -160,10 +271,12 @@ def test_review_role_policy_matches_subject_email_and_issuer() -> None:
 def test_example_identity_and_permission_configs_parse() -> None:
     static_provider = build_identity_provider_from_file("examples/identity_provider_static.json")
     oidc_provider = build_identity_provider_from_file("examples/identity_provider_oidc.json")
+    oidc_auth_code_provider = build_identity_provider_from_file("examples/identity_provider_oidc_auth_code.json")
     policy = ReviewPermissionPolicy.from_file("examples/review_permissions_identity.json")
 
     assert isinstance(static_provider, StaticIdentityProvider)
     assert isinstance(oidc_provider, IntrospectionIdentityProvider)
+    assert isinstance(oidc_auth_code_provider, OidcAuthorizationCodeIdentityProvider)
     triager = policy.resolve("triager")
     assert triager.allowed_subjects == ("alice",)
     assert triager.allowed_emails == ("alice@example.com",)
@@ -327,3 +440,118 @@ def test_introspection_identity_provider_and_review_server_permissions(tmp_path)
         introspection_server.shutdown()
         introspection_server.server_close()
         introspection_thread.join(timeout=5)
+
+
+def test_oidc_authorization_code_flow_refreshes_session_tokens(tmp_path) -> None:
+    oidc_server, oidc_thread = _start_oidc_authorization_server(
+        {
+            "alice": {
+                "sub": "alice",
+                "name": "Alice Example",
+                "email": "alice@example.com",
+                "groups": ["triagers"],
+                "iss": "https://idp.example.test",
+                "active": True,
+            }
+        },
+        expires_in_seconds=1,
+    )
+    try:
+        auth_base = f"http://127.0.0.1:{oidc_server.server_address[1]}"
+        provider_config = tmp_path / "identity_provider_oidc_auth_code.json"
+        session_cache = tmp_path / "oidc_sessions.json"
+        provider_config.write_text(
+            json.dumps(
+                {
+                    "mode": "authorization_code",
+                    "authorization_endpoint": f"{auth_base}/authorize",
+                    "token_endpoint": f"{auth_base}/token",
+                    "userinfo_endpoint": f"{auth_base}/userinfo",
+                    "client_id": "hybrid-trainer",
+                    "client_secret": "replace-me",
+                    "scope": "openid profile email",
+                    "timeout_seconds": 5,
+                    "refresh_margin_seconds": 5,
+                    "session_cache_path": str(session_cache),
+                    "subject_claim": "sub",
+                    "display_name_claim": "name",
+                    "email_claim": "email",
+                    "groups_claim": "groups",
+                    "issuer_claim": "iss",
+                    "active_claim": "active",
+                }
+            ),
+            encoding="utf-8",
+        )
+        provider = build_identity_provider_from_file(str(provider_config))
+        assert isinstance(provider, OidcAuthorizationCodeIdentityProvider)
+
+        engine = TrainingEngine()
+        engine.run_cycles(1, 3, DecisionNode.FAILURE_REVIEW)
+        console = engine.generate_decision_console(review_budget=2, active_learning_limit=2, recent_event_limit=2)
+        batch = route_review_items(engine.review_queue.pending, budget=2)
+        session_path = tmp_path / "review_session.json"
+        audit_log = tmp_path / "review_audit.jsonl"
+        save_review_session(
+            ReviewSession.create(
+                console=console,
+                batch=batch,
+                permission_policy=ReviewPermissionPolicy.from_dict(
+                    {
+                        "roles": [
+                            {
+                                "role": "triager",
+                                "allowed_decisions": ["approve", "review"],
+                                "can_resolve": True,
+                                "can_export": True,
+                                "allowed_subjects": ["alice"],
+                                "allowed_groups": ["triagers"],
+                            },
+                            {
+                                "role": "admin",
+                                "allowed_decisions": ["approve", "review", "block"],
+                                "can_resolve": True,
+                                "can_export": True,
+                                "allowed_groups": ["admins"],
+                            },
+                        ]
+                    }
+                ),
+            ),
+            str(session_path),
+        )
+
+        store = build_review_store(session_path=str(session_path), audit_log_path=str(audit_log))
+        server = build_review_server(
+            auth_token="",
+            store=store,
+            identity_provider=provider,
+            host="127.0.0.1",
+            port=0,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base_url = f"http://127.0.0.1:{server.server_address[1]}"
+            login_payload = _request_json(f"{base_url}/api/oidc/login?reviewer=alice&role=triager")
+            assert login_payload["authorization_url"].startswith(f"{auth_base}/authorize")
+
+            callback_payload = _request_json(login_payload["authorization_url"])
+            assert callback_payload["identity"]["subject"] == "alice"
+            session_token = callback_payload["session_token"]
+
+            session_payload = _request_json(f"{base_url}/api/session", token=session_token)
+            assert session_payload["identity"]["subject"] == "alice"
+
+            session_snapshot = provider.describe_session(session_token)
+            assert session_snapshot["access_token"].startswith("refreshed-access-")
+            assert oidc_server.refresh_count >= 1
+            assert session_cache.exists()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+    finally:
+        oidc_server.shutdown()
+        oidc_server.server_close()
+        oidc_thread.join(timeout=5)

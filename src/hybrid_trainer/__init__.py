@@ -31,6 +31,9 @@ from .review_audit import append_review_audit_event, create_review_audit_event, 
 from .review_consensus import ReviewConsensusRecord, build_review_consensus, save_review_consensus
 from .review_identity import (
     IdentityProvider,
+    OidcAuthorizationCodeIdentityProvider,
+    OidcPendingLogin,
+    OidcSessionRecord,
     IntrospectionIdentityProvider,
     ReviewIdentity,
     StaticIdentityProvider,
@@ -47,7 +50,7 @@ from .review_session import (
     load_review_session,
     save_review_session,
 )
-from .review_store import FileReviewStore, ReviewStore, SqliteReviewStore, build_review_store
+from .review_store import FileReviewStore, PostgresReviewStore, ReviewStore, SqliteReviewStore, build_review_store
 from .review_web import render_review_workbench_html, save_review_workbench_html
 from .policy_registry import PolicyRegistry, PolicyVersionRecord
 from .pipeline import (
@@ -103,6 +106,9 @@ __all__ = [
     "IterationReport",
     "JobOrchestrator",
     "IntrospectionIdentityProvider",
+    "OidcAuthorizationCodeIdentityProvider",
+    "OidcPendingLogin",
+    "OidcSessionRecord",
     "ModelServiceConfig",
     "ModelServiceRegistry",
     "NodeTriggerRecommendation",
@@ -136,6 +142,7 @@ __all__ = [
     "TrainingStrategy",
     "TriggerRuleConfig",
     "VerifierResult",
+    "PostgresReviewStore",
     "analyze_failures",
     "append_review_audit_event",
     "build_review_consensus",
@@ -177,6 +184,7 @@ __all__ = [
     "select_uncertain_samples",
     "serve_review_server",
     "FileReviewStore",
+    "PostgresReviewStore",
     "ReviewStore",
     "SqliteReviewStore",
     "StaticIdentityProvider",
