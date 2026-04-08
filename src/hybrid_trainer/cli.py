@@ -11,10 +11,12 @@ from .generation import CommandTaskGenerator, DatasetTaskGenerator, TaskGenerato
 from .job_orchestration import JobOrchestrator, save_job_orchestrator
 from .model_service import ModelServiceRegistry
 from .pipeline import DecisionNode, PipelineConfig, TrainingPipeline
+from .review_permissions import ReviewPermissionPolicy
 from .runtime_config import RuntimeConfig, load_runtime_config
 from .decision_console import save_decision_console
 from .human_review import load_review_decisions, save_review_batch, save_review_decisions
 from .review_consensus import save_review_consensus
+from .review_web import save_review_workbench_html
 from .state import save_snapshot
 from .strategy import TrainingStrategy
 from .terminal_ui import collect_review_decisions, render_decision_console, render_review_batch
@@ -37,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=str, default="artifacts/run_summary.json", help="summary output path")
     parser.add_argument("--console-output", type=str, default="", help="optional decision console JSON path")
     parser.add_argument("--console-html-output", type=str, default="", help="optional decision console HTML path")
+    parser.add_argument("--review-web-output", type=str, default="", help="optional review workbench HTML path")
     parser.add_argument("--training-output", type=str, default="", help="optional training execution JSON path")
     parser.add_argument("--task-dataset", type=str, default="", help="optional JSON/JSONL task dataset path")
     parser.add_argument(
@@ -101,6 +104,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--print-review-batch", action="store_true", help="render the selected review batch to stdout")
     parser.add_argument("--interactive-review", action="store_true", help="collect human review decisions interactively")
     parser.add_argument("--reviewer", type=str, default="cli_reviewer", help="reviewer name for interactive decisions")
+    parser.add_argument("--review-role", type=str, default="reviewer", help="review role used by review web workbench")
+    parser.add_argument(
+        "--review-permissions-config",
+        type=str,
+        default="",
+        help="optional review permission policy JSON path for web workbench export",
+    )
     parser.add_argument(
         "--review-consensus-min-reviewers",
         type=int,
@@ -286,6 +296,12 @@ def _resolve_job_orchestrator(ns: argparse.Namespace) -> JobOrchestrator | None:
     return None
 
 
+def _resolve_review_permission_policy(ns: argparse.Namespace) -> ReviewPermissionPolicy:
+    if ns.review_permissions_config:
+        return ReviewPermissionPolicy.from_file(ns.review_permissions_config)
+    return ReviewPermissionPolicy.default()
+
+
 def run(args: list[str] | None = None) -> Path:
     parser = build_parser()
     ns = parser.parse_args(args=args)
@@ -315,7 +331,7 @@ def run(args: list[str] | None = None) -> Path:
             engine.apply_review_decisions(loaded_decisions)
 
     review_batch = None
-    if ns.review_batch_output or ns.print_review_batch or ns.interactive_review:
+    if ns.review_batch_output or ns.print_review_batch or ns.interactive_review or ns.review_web_output:
         review_batch = engine.get_review_batch(ns.review_budget)
         if ns.review_batch_output:
             save_review_batch(review_batch.items, ns.review_batch_output, budget=review_batch.budget)
@@ -356,6 +372,8 @@ def run(args: list[str] | None = None) -> Path:
             "evaluator": type(engine.evaluator).__name__,
             "verifier": type(engine.verifier).__name__,
             "training_executor": type(engine.training_executor).__name__,
+            "review_role": ns.review_role,
+            "review_permissions_config": ns.review_permissions_config or None,
             "external_generator_cmd": ns.external_generator_cmd or None,
             "external_evaluator_cmd": ns.external_evaluator_cmd or None,
             "external_training_cmd": ns.external_training_cmd or None,
@@ -398,7 +416,7 @@ def run(args: list[str] | None = None) -> Path:
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     console = None
-    if ns.console_output or ns.console_html_output or ns.print_console:
+    if ns.console_output or ns.console_html_output or ns.print_console or ns.review_web_output:
         console = engine.generate_decision_console(
             review_budget=ns.review_budget,
             active_learning_limit=ns.active_learning_limit,
@@ -411,6 +429,25 @@ def run(args: list[str] | None = None) -> Path:
         save_decision_console_html(console, ns.console_html_output)
     if ns.print_console and console is not None:
         print(render_decision_console(console), end="")
+    if ns.review_web_output and console is not None and review_batch is not None:
+        save_review_workbench_html(
+            console=console,
+            batch=review_batch,
+            path=ns.review_web_output,
+            reviewer=ns.reviewer,
+            role=ns.review_role,
+            permission_policy=_resolve_review_permission_policy(ns),
+        )
+        engine.tracker.track(
+            event_type="review_workbench_exported",
+            payload={
+                "path": ns.review_web_output,
+                "reviewer": ns.reviewer,
+                "role": ns.review_role,
+                "budget": review_batch.budget,
+                "selected": [item.iteration for item in review_batch.items],
+            },
+        )
 
     if ns.events_output:
         engine.tracker.export_jsonl(ns.events_output)

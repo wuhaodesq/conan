@@ -28,7 +28,9 @@ from .reward_drift import RewardDriftReport, compute_reward_drift
 from .search import PathCandidate, select_best_path
 from .report import DecisionDashboard, build_dashboard
 from .review_consensus import ReviewConsensusRecord, build_review_consensus, save_review_consensus
+from .review_permissions import ReviewPermissionPolicy, ReviewRolePolicy
 from .review_router import RoutedReviewBatch, route_review_items, score_review_risk
+from .review_web import render_review_workbench_html, save_review_workbench_html
 from .policy_registry import PolicyRegistry, PolicyVersionRecord
 from .pipeline import (
     Decision,
@@ -91,6 +93,8 @@ __all__ = [
     "PolicyRegistry",
     "PolicyVersionRecord",
     "ReviewConsensusRecord",
+    "ReviewPermissionPolicy",
+    "ReviewRolePolicy",
     "RewardDriftReport",
     "RewardPolicy",
     "RoutedReviewBatch",
@@ -123,6 +127,7 @@ __all__ = [
     "render_decision_console",
     "render_decision_console_html",
     "render_review_batch",
+    "render_review_workbench_html",
     "route_review_items",
     "run_cli",
     "save_review_batch",
@@ -131,6 +136,7 @@ __all__ = [
     "save_decision_console",
     "save_decision_console_html",
     "save_job_orchestrator",
+    "save_review_workbench_html",
     "save_snapshot",
     "save_training_execution_result",
     "score_review_risk",

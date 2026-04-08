@@ -1,0 +1,25 @@
+{
+  "roles": [
+    {
+      "role": "viewer",
+      "allowed_decisions": [],
+      "can_resolve": false,
+      "can_export": false,
+      "description": "Read-only access for audit and operations observers."
+    },
+    {
+      "role": "triager",
+      "allowed_decisions": ["approve", "review"],
+      "can_resolve": true,
+      "can_export": true,
+      "description": "Can approve or route back to review, but cannot issue hard blocks."
+    },
+    {
+      "role": "admin",
+      "allowed_decisions": ["approve", "review", "block"],
+      "can_resolve": true,
+      "can_export": true,
+      "description": "Full approval and export rights for release owners."
+    }
+  ]
+}
