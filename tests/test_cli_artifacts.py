@@ -6,6 +6,7 @@ from hybrid_trainer.cli import run
 def test_cli_can_export_events_and_state(tmp_path) -> None:
     summary = tmp_path / "summary.json"
     console = tmp_path / "console.json"
+    console_html = tmp_path / "console.html"
     review_batch = tmp_path / "review_batch.json"
     review_decisions = tmp_path / "review_decisions.json"
     events = tmp_path / "events.jsonl"
@@ -35,6 +36,8 @@ def test_cli_can_export_events_and_state(tmp_path) -> None:
         str(summary),
         "--console-output",
         str(console),
+        "--console-html-output",
+        str(console_html),
         "--review-batch-output",
         str(review_batch),
         "--review-decisions-input",
@@ -47,6 +50,7 @@ def test_cli_can_export_events_and_state(tmp_path) -> None:
 
     assert summary.exists()
     assert console.exists()
+    assert console_html.exists()
     assert review_batch.exists()
     assert events.exists()
     assert state.exists()
@@ -59,6 +63,7 @@ def test_cli_can_export_events_and_state(tmp_path) -> None:
     assert "review_queue" in console_data
     assert console_data["review_queue"]["resolved_count"] == 1
     assert "policy" in console_data
+    assert "Visual Decision Console" in console_html.read_text(encoding="utf-8")
     assert events.read_text(encoding="utf-8").strip() != ""
     assert json.loads(state.read_text(encoding="utf-8"))["strategy"] in {"sft", "rl", "dpo"}
 

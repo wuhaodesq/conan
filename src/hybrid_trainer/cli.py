@@ -15,6 +15,7 @@ from .state import save_snapshot
 from .strategy import TrainingStrategy
 from .terminal_ui import collect_review_decisions, render_decision_console, render_review_batch
 from .verifier import ReferenceAnswerVerifier, SimpleVerifier
+from .web_console import save_decision_console_html
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,6 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output", type=str, default="artifacts/run_summary.json", help="summary output path")
     parser.add_argument("--console-output", type=str, default="", help="optional decision console JSON path")
+    parser.add_argument("--console-html-output", type=str, default="", help="optional decision console HTML path")
     parser.add_argument("--training-output", type=str, default="", help="optional training execution JSON path")
     parser.add_argument("--task-dataset", type=str, default="", help="optional JSON/JSONL task dataset path")
     parser.add_argument("--review-batch-output", type=str, default="", help="optional pending review batch JSON path")
@@ -241,7 +243,7 @@ def run(args: list[str] | None = None) -> Path:
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     console = None
-    if ns.console_output or ns.print_console:
+    if ns.console_output or ns.console_html_output or ns.print_console:
         console = engine.generate_decision_console(
             review_budget=ns.review_budget,
             active_learning_limit=ns.active_learning_limit,
@@ -250,6 +252,8 @@ def run(args: list[str] | None = None) -> Path:
 
     if ns.console_output and console is not None:
         save_decision_console(console, ns.console_output)
+    if ns.console_html_output and console is not None:
+        save_decision_console_html(console, ns.console_html_output)
     if ns.print_console and console is not None:
         print(render_decision_console(console), end="")
 

@@ -44,6 +44,7 @@ from .training_execution import (
 )
 from .triggers import NodeTriggerRecommendation, TriggerRuleConfig, recommend_major_nodes
 from .verifier import ReferenceAnswerVerifier, SimpleVerifier, VerifierResult
+from .web_console import render_decision_console_html, save_decision_console_html
 
 __all__ = [
     "ActiveLearningCandidate",
@@ -102,12 +103,14 @@ __all__ = [
     "load_task_samples",
     "recommend_major_nodes",
     "render_decision_console",
+    "render_decision_console_html",
     "render_review_batch",
     "route_review_items",
     "run_cli",
     "save_review_batch",
     "save_review_decisions",
     "save_decision_console",
+    "save_decision_console_html",
     "save_snapshot",
     "save_training_execution_result",
     "score_review_risk",

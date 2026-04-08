@@ -49,7 +49,8 @@
 │       ├── terminal_ui.py
 │       ├── training_execution.py
 │       ├── triggers.py
-│       └── verifier.py
+│       ├── verifier.py
+│       └── web_console.py
 └── tests/
     ├── test_cli.py
     ├── test_cli_artifacts.py
@@ -75,7 +76,8 @@
     ├── test_training_execution.py
     ├── test_triggers.py
     ├── test_verifier.py
-    └── test_runtime_config.py
+    ├── test_runtime_config.py
+    └── test_web_console.py
 ```
 
 ## 快速开始
@@ -91,6 +93,7 @@
 9. 执行训练器并导出训练工件：`python -m hybrid_trainer.cli --execute-training --training-output artifacts/training_execution.json`
 10. 使用任务数据集与参考答案 verifier：`python -m hybrid_trainer.cli --task-dataset examples/task_dataset.json --reference-verifier`
 11. 终端交互式人工审批：`python -m hybrid_trainer.cli --print-console --print-review-batch --interactive-review --reviewer alice`
+12. 导出可视化 HTML 决策台：`python -m hybrid_trainer.cli --console-html-output artifacts/decision_console.html`
 
 ## 当前已完成的开发
 
@@ -122,9 +125,9 @@
 - 训练执行器闭环：支持按当前 SFT/RL/DPO 策略执行模拟训练任务，并将结果写入训练工件、运行摘要与实验事件日志。
 - 数据接入型 generator/verifier：支持从 JSON/JSONL 任务集加载任务样本，并使用参考答案校验式 verifier 驱动更真实的任务验证。
 - 终端交互式决策台：支持将 console/review batch 渲染为人可读文本，并在 CLI 中逐条录入人工审批结论。
+- 可视化 HTML 决策台：支持从同一份 decision console 数据导出可离线打开、可分享的 Web 风格运营视图。
 
 ## 下一步开发方向
 
-- 可视化 Web/桌面决策台。
 - 多评审人一致性与冲突仲裁。
 - 接入更真实的外部自动评估器与训练后端。
