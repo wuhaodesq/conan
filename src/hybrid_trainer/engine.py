@@ -22,6 +22,7 @@ from .experiment import ExperimentTracker
 from .failure_analysis import FailureTaxonomy, analyze_failures
 from .generation import TaskGenerator, TaskSample
 from .human_review import HumanReviewDecision, HumanReviewItem, HumanReviewQueue, save_review_batch
+from .job_orchestration import JobOrchestrator
 from .metrics import DecisionMetrics, summarize_decisions
 from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
 from .policy_registry import PolicyRegistry
@@ -59,6 +60,7 @@ class TrainingEngine:
     tracker: ExperimentTracker = field(default_factory=ExperimentTracker)
     trigger_rules: TriggerRuleConfig = field(default_factory=TriggerRuleConfig)
     review_consensus_history: list[ReviewConsensusRecord] = field(default_factory=list)
+    job_orchestrator: JobOrchestrator | None = None
 
 
     def __post_init__(self) -> None:
@@ -69,8 +71,8 @@ class TrainingEngine:
             self.policy_registry.active_version = active.version
 
     def run_cycle(self, iteration: int, node: DecisionNode) -> CycleResult:
-        sample = self.generator.generate(iteration)
-        result = self.evaluator.evaluate(sample)
+        sample, generation_job_id = self._generate_sample(iteration)
+        result, _ = self._evaluate_sample(sample, dependencies=[generation_job_id] if generation_job_id else [])
         report = self.pipeline.run_iteration(
             iteration,
             result.score,
@@ -511,7 +513,7 @@ class TrainingEngine:
                 "total_samples": metrics.total,
             },
         )
-        result = self.training_executor.execute(request, output_path=output_path)
+        result, _ = self._execute_training_job(request, output_path=output_path)
         self.tracker.track(
             event_type="training_execution_completed",
             payload=result.to_dict(),
@@ -535,3 +537,66 @@ class TrainingEngine:
             event_type="policy_registered",
             payload={"version": policy.version, "note": note},
         )
+
+    def _generate_sample(self, iteration: int) -> tuple[TaskSample, str | None]:
+        if self.job_orchestrator is None:
+            return self.generator.generate(iteration), None
+
+        return self.job_orchestrator.run_job(
+            kind="task_generation",
+            service=_component_service_name(self.generator),
+            payload={"iteration": iteration},
+            runner=lambda: _task_generation_result(self.generator.generate(iteration)),
+        )
+
+    def _evaluate_sample(self, sample: TaskSample, dependencies: list[str]) -> tuple[object, str | None]:
+        if self.job_orchestrator is None:
+            return self.evaluator.evaluate(sample), None
+
+        return self.job_orchestrator.run_job(
+            kind="auto_evaluation",
+            service=_component_service_name(self.evaluator),
+            payload={"task_id": sample.task_id},
+            dependencies=dependencies,
+            runner=lambda: _evaluation_result(self.evaluator.evaluate(sample)),
+        )
+
+    def _execute_training_job(
+        self,
+        request: TrainingExecutionRequest,
+        output_path: str = "",
+    ) -> tuple[TrainingExecutionResult, str | None]:
+        if self.job_orchestrator is None:
+            return self.training_executor.execute(request, output_path=output_path), None
+
+        dependencies = [self.job_orchestrator.jobs[-1].job_id] if self.job_orchestrator.jobs else []
+        return self.job_orchestrator.run_job(
+            kind="training_execution",
+            service=_component_service_name(self.training_executor),
+            payload={
+                "strategy": request.strategy.value,
+                "curriculum_stage": request.curriculum_stage,
+                "policy_version": request.policy_version,
+                "output_path": output_path,
+            },
+            dependencies=dependencies,
+            runner=lambda: _training_result(
+                self.training_executor.execute(request, output_path=output_path)
+            ),
+        )
+
+
+def _component_service_name(component: object) -> str:
+    return str(getattr(component, "service_name", type(component).__name__))
+
+
+def _task_generation_result(sample: TaskSample) -> tuple[TaskSample, dict]:
+    return sample, sample.to_dict()
+
+
+def _evaluation_result(result: object) -> tuple[object, dict]:
+    return result, result.to_dict()
+
+
+def _training_result(result: TrainingExecutionResult) -> tuple[TrainingExecutionResult, dict]:
+    return result, result.to_dict()

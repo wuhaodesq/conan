@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
+from .command_backend import run_json_command
+
 
 @dataclass(slots=True)
 class TaskSample:
@@ -61,6 +63,26 @@ class DatasetTaskGenerator(TaskGenerator):
     @classmethod
     def from_file(cls, path: str) -> "DatasetTaskGenerator":
         return cls(load_task_samples(path))
+
+
+class CommandTaskGenerator(TaskGenerator):
+    """Task generator backed by an external JSON-speaking command."""
+
+    def __init__(self, command: str, timeout_seconds: int = 30, service_name: str = "") -> None:
+        self.command = command
+        self.timeout_seconds = timeout_seconds
+        self.service_name = service_name or type(self).__name__
+
+    def generate(self, iteration: int) -> TaskSample:
+        response = run_json_command(
+            self.command,
+            payload={"iteration": iteration},
+            timeout_seconds=self.timeout_seconds,
+        )
+        task_payload = response.get("task", response)
+        if not isinstance(task_payload, dict):
+            raise ValueError("external task generator must return a task object")
+        return TaskSample.from_dict(task_payload)
 
 
 def load_task_samples(path: str) -> list[TaskSample]:

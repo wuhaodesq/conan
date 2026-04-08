@@ -58,10 +58,17 @@ class AutoEvaluator:
 class CommandAutoEvaluator(AutoEvaluator):
     """Adapter that delegates scoring to an external JSON-speaking command."""
 
-    def __init__(self, command: str, pass_threshold: float = 0.8, timeout_seconds: int = 30) -> None:
+    def __init__(
+        self,
+        command: str,
+        pass_threshold: float = 0.8,
+        timeout_seconds: int = 30,
+        service_name: str = "",
+    ) -> None:
         super().__init__(pass_threshold=pass_threshold)
         self.command = command
         self.timeout_seconds = timeout_seconds
+        self.service_name = service_name or type(self).__name__
 
     def evaluate(self, sample: TaskSample) -> EvaluationResult:
         response = run_json_command(

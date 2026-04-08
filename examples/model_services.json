@@ -1,0 +1,22 @@
+{
+  "services": [
+    {
+      "name": "generator.example",
+      "role": "generator",
+      "command": ["python", "examples/external_generator.py"],
+      "timeout_seconds": 30
+    },
+    {
+      "name": "evaluator.example",
+      "role": "evaluator",
+      "command": ["python", "examples/external_evaluator.py"],
+      "timeout_seconds": 30
+    },
+    {
+      "name": "training.example",
+      "role": "training",
+      "command": ["python", "examples/external_trainer.py"],
+      "timeout_seconds": 120
+    }
+  ]
+}

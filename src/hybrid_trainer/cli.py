@@ -7,10 +7,12 @@ from pathlib import Path
 
 from .engine import TrainingEngine
 from .evaluation import AutoEvaluator, CommandAutoEvaluator, Evaluator
+from .generation import CommandTaskGenerator, DatasetTaskGenerator, TaskGenerator
+from .job_orchestration import JobOrchestrator, save_job_orchestrator
+from .model_service import ModelServiceRegistry
 from .pipeline import DecisionNode, PipelineConfig, TrainingPipeline
 from .runtime_config import RuntimeConfig, load_runtime_config
 from .decision_console import save_decision_console
-from .generation import DatasetTaskGenerator, TaskGenerator
 from .human_review import load_review_decisions, save_review_batch, save_review_decisions
 from .review_consensus import save_review_consensus
 from .state import save_snapshot
@@ -38,6 +40,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--training-output", type=str, default="", help="optional training execution JSON path")
     parser.add_argument("--task-dataset", type=str, default="", help="optional JSON/JSONL task dataset path")
     parser.add_argument(
+        "--external-generator-cmd",
+        type=str,
+        default="",
+        help="optional external task generator command; reads JSON from stdin and returns JSON to stdout",
+    )
+    parser.add_argument(
+        "--external-generator-timeout",
+        type=int,
+        default=30,
+        help="timeout in seconds for the external task generator command",
+    )
+    parser.add_argument(
         "--external-evaluator-cmd",
         type=str,
         default="",
@@ -60,6 +74,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--events-output", type=str, default="", help="optional events JSONL export path")
     parser.add_argument("--state-output", type=str, default="", help="optional state snapshot JSON path")
+    parser.add_argument(
+        "--job-orchestration-output",
+        type=str,
+        default="",
+        help="optional orchestration job log JSON path",
+    )
     parser.add_argument("--execute-training", action="store_true", help="run the current training strategy executor")
     parser.add_argument(
         "--external-training-cmd",
@@ -73,6 +93,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=120,
         help="timeout in seconds for the external training command",
     )
+    parser.add_argument("--model-service-config", type=str, default="", help="optional model service registry JSON path")
+    parser.add_argument("--generator-service", type=str, default="", help="named generator service from model registry")
+    parser.add_argument("--evaluator-service", type=str, default="", help="named evaluator service from model registry")
+    parser.add_argument("--training-service", type=str, default="", help="named training service from model registry")
     parser.add_argument("--print-console", action="store_true", help="render the decision console to stdout")
     parser.add_argument("--print-review-batch", action="store_true", help="render the selected review batch to stdout")
     parser.add_argument("--interactive-review", action="store_true", help="collect human review decisions interactively")
@@ -176,12 +200,33 @@ def _resolve_runtime_config(ns: argparse.Namespace) -> RuntimeConfig:
 
 
 def _resolve_task_generator(ns: argparse.Namespace) -> TaskGenerator:
+    service_registry = _resolve_model_services(ns)
+    if ns.generator_service:
+        service = service_registry.resolve(ns.generator_service, role="generator")
+        return CommandTaskGenerator(
+            service.command,
+            timeout_seconds=service.timeout_seconds,
+            service_name=service.name,
+        )
+    if ns.external_generator_cmd:
+        return CommandTaskGenerator(
+            ns.external_generator_cmd,
+            timeout_seconds=ns.external_generator_timeout,
+        )
     if ns.task_dataset:
         return DatasetTaskGenerator.from_file(ns.task_dataset)
     return TaskGenerator()
 
 
 def _resolve_evaluator(ns: argparse.Namespace) -> Evaluator:
+    service_registry = _resolve_model_services(ns)
+    if ns.evaluator_service:
+        service = service_registry.resolve(ns.evaluator_service, role="evaluator")
+        return CommandAutoEvaluator(
+            service.command,
+            timeout_seconds=service.timeout_seconds,
+            service_name=service.name,
+        )
     if ns.external_evaluator_cmd:
         return CommandAutoEvaluator(
             ns.external_evaluator_cmd,
@@ -197,12 +242,48 @@ def _resolve_verifier(ns: argparse.Namespace) -> SimpleVerifier:
 
 
 def _resolve_training_executor(ns: argparse.Namespace) -> TrainingExecutor:
+    service_registry = _resolve_model_services(ns)
+    if ns.training_service:
+        service = service_registry.resolve(ns.training_service, role="training")
+        return CommandTrainingExecutor(
+            service.command,
+            timeout_seconds=service.timeout_seconds,
+            service_name=service.name,
+        )
     if ns.external_training_cmd:
         return CommandTrainingExecutor(
             ns.external_training_cmd,
             timeout_seconds=ns.external_training_timeout,
         )
     return SimulatedTrainingExecutor()
+
+
+def _resolve_model_services(ns: argparse.Namespace) -> ModelServiceRegistry:
+    if not hasattr(ns, "_model_service_registry"):
+        if ns.model_service_config:
+            registry = ModelServiceRegistry.from_file(ns.model_service_config)
+        else:
+            registry = ModelServiceRegistry()
+
+        if (ns.generator_service or ns.evaluator_service or ns.training_service) and not ns.model_service_config:
+            raise ValueError("model service selectors require --model-service-config")
+        setattr(ns, "_model_service_registry", registry)
+
+    return getattr(ns, "_model_service_registry")
+
+
+def _resolve_job_orchestrator(ns: argparse.Namespace) -> JobOrchestrator | None:
+    if (
+        ns.job_orchestration_output
+        or ns.external_generator_cmd
+        or ns.external_evaluator_cmd
+        or ns.external_training_cmd
+        or ns.generator_service
+        or ns.evaluator_service
+        or ns.training_service
+    ):
+        return JobOrchestrator()
+    return None
 
 
 def run(args: list[str] | None = None) -> Path:
@@ -217,6 +298,7 @@ def run(args: list[str] | None = None) -> Path:
         trigger_rules=runtime_config.trigger_rules,
         training_executor=_resolve_training_executor(ns),
         verifier=_resolve_verifier(ns),
+        job_orchestrator=_resolve_job_orchestrator(ns),
     )
     node = DecisionNode(ns.node)
     engine.run_cycles(ns.start, ns.end, node)
@@ -270,12 +352,19 @@ def run(args: list[str] | None = None) -> Path:
         "config": runtime_config.to_dict(),
         "inputs": {
             "task_dataset": ns.task_dataset or None,
+            "generator": type(engine.generator).__name__,
             "evaluator": type(engine.evaluator).__name__,
             "verifier": type(engine.verifier).__name__,
             "training_executor": type(engine.training_executor).__name__,
+            "external_generator_cmd": ns.external_generator_cmd or None,
             "external_evaluator_cmd": ns.external_evaluator_cmd or None,
             "external_training_cmd": ns.external_training_cmd or None,
+            "model_service_config": ns.model_service_config or None,
+            "generator_service": ns.generator_service or None,
+            "evaluator_service": ns.evaluator_service or None,
+            "training_service": ns.training_service or None,
         },
+        "job_orchestration": engine.job_orchestrator.summary() if engine.job_orchestrator is not None else None,
         "human_review": {
             "pending": len(engine.review_queue.pending),
             "resolved": len(engine.review_queue.resolved),
@@ -328,6 +417,9 @@ def run(args: list[str] | None = None) -> Path:
 
     if ns.state_output:
         save_snapshot(engine.snapshot_state(), ns.state_output)
+
+    if ns.job_orchestration_output and engine.job_orchestrator is not None:
+        save_job_orchestrator(engine.job_orchestrator, ns.job_orchestration_output)
 
     return output
 

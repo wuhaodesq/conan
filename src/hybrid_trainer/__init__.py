@@ -10,7 +10,7 @@ from .engine import CycleResult, TrainingEngine
 from .evaluation import AutoEvaluator, CommandAutoEvaluator, EvaluationResult, Evaluator
 from .experiment import ExperimentEvent, ExperimentTracker
 from .failure_analysis import FailureTaxonomy, analyze_failures
-from .generation import DatasetTaskGenerator, TaskGenerator, TaskSample, load_task_samples
+from .generation import CommandTaskGenerator, DatasetTaskGenerator, TaskGenerator, TaskSample, load_task_samples
 from .human_review import (
     HumanReviewDecision,
     HumanReviewItem,
@@ -19,7 +19,9 @@ from .human_review import (
     save_review_batch,
     save_review_decisions,
 )
+from .job_orchestration import JobOrchestrator, OrchestratedJob, save_job_orchestrator
 from .metrics import DecisionMetrics, summarize_decisions
+from .model_service import ModelServiceConfig, ModelServiceRegistry
 from .runtime_config import RuntimeConfig, load_runtime_config
 from .reward_policy import RewardPolicy
 from .reward_drift import RewardDriftReport, compute_reward_drift
@@ -55,6 +57,7 @@ __all__ = [
     "AutoEvaluator",
     "CommandAutoEvaluator",
     "CommandBackendError",
+    "CommandTaskGenerator",
     "CommandTrainingExecutor",
     "CostReport",
     "CurriculumAdvanceRecord",
@@ -77,7 +80,11 @@ __all__ = [
     "HumanReviewItem",
     "HumanReviewQueue",
     "IterationReport",
+    "JobOrchestrator",
+    "ModelServiceConfig",
+    "ModelServiceRegistry",
     "NodeTriggerRecommendation",
+    "OrchestratedJob",
     "PathCandidate",
     "PipelineConfig",
     "ReferenceAnswerVerifier",
@@ -123,6 +130,7 @@ __all__ = [
     "save_review_decisions",
     "save_decision_console",
     "save_decision_console_html",
+    "save_job_orchestrator",
     "save_snapshot",
     "save_training_execution_result",
     "score_review_risk",

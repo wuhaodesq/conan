@@ -102,9 +102,10 @@ class SimulatedTrainingExecutor:
 class CommandTrainingExecutor:
     """Adapter that delegates training execution to an external JSON-speaking command."""
 
-    def __init__(self, command: str, timeout_seconds: int = 120) -> None:
+    def __init__(self, command: str, timeout_seconds: int = 120, service_name: str = "") -> None:
         self.command = command
         self.timeout_seconds = timeout_seconds
+        self.service_name = service_name or type(self).__name__
 
     def execute(
         self,
