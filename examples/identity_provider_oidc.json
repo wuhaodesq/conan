@@ -1,0 +1,13 @@
+{
+  "mode": "introspection",
+  "introspection_url": "https://idp.example.com/oauth2/introspect",
+  "client_id": "hybrid-trainer",
+  "client_secret": "replace-me",
+  "timeout_seconds": 5,
+  "subject_claim": "sub",
+  "display_name_claim": "name",
+  "email_claim": "email",
+  "groups_claim": "groups",
+  "issuer_claim": "iss",
+  "active_claim": "active"
+}

@@ -29,6 +29,13 @@ from .search import PathCandidate, select_best_path
 from .report import DecisionDashboard, build_dashboard
 from .review_audit import append_review_audit_event, create_review_audit_event, load_review_audit_events
 from .review_consensus import ReviewConsensusRecord, build_review_consensus, save_review_consensus
+from .review_identity import (
+    IdentityProvider,
+    IntrospectionIdentityProvider,
+    ReviewIdentity,
+    StaticIdentityProvider,
+    build_identity_provider_from_file,
+)
 from .review_permissions import ReviewPermissionPolicy, ReviewRolePolicy
 from .review_router import RoutedReviewBatch, route_review_items, score_review_risk
 from .review_server import build_review_server, serve_review_server
@@ -92,8 +99,10 @@ __all__ = [
     "HumanReviewDecision",
     "HumanReviewItem",
     "HumanReviewQueue",
+    "IdentityProvider",
     "IterationReport",
     "JobOrchestrator",
+    "IntrospectionIdentityProvider",
     "ModelServiceConfig",
     "ModelServiceRegistry",
     "NodeTriggerRecommendation",
@@ -104,6 +113,7 @@ __all__ = [
     "PolicyRegistry",
     "PolicyVersionRecord",
     "ReviewConsensusRecord",
+    "ReviewIdentity",
     "ReviewPermissionPolicy",
     "ReviewRolePolicy",
     "ReviewSession",
@@ -129,6 +139,7 @@ __all__ = [
     "analyze_failures",
     "append_review_audit_event",
     "build_review_consensus",
+    "build_identity_provider_from_file",
     "build_dashboard",
     "build_review_server",
     "build_review_store",
@@ -168,5 +179,6 @@ __all__ = [
     "FileReviewStore",
     "ReviewStore",
     "SqliteReviewStore",
+    "StaticIdentityProvider",
     "summarize_decisions",
 ]

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .decision_console import DecisionConsole
 from .human_review import HumanReviewDecision, save_review_decisions
+from .review_identity import ReviewIdentity
 from .review_permissions import ReviewPermissionPolicy
 from .review_router import RoutedReviewBatch
 
@@ -106,9 +107,13 @@ class ReviewSession:
         reviewer: str,
         role: str,
         decisions: list[HumanReviewDecision],
+        identity: ReviewIdentity | None = None,
     ) -> None:
         policy = ReviewPermissionPolicy.from_dict(self.permission_policy)
         role_policy = policy.resolve(role)
+        if not role_policy.allows_identity(identity):
+            principal = identity.subject if identity is not None else "anonymous"
+            raise PermissionError(f"identity {principal} is not allowed to submit role {role}")
         for item in decisions:
             if item.final_decision.value not in role_policy.allowed_decisions:
                 raise ValueError(

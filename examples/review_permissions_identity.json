@@ -1,0 +1,27 @@
+{
+  "roles": [
+    {
+      "role": "viewer",
+      "allowed_decisions": [],
+      "can_resolve": false,
+      "can_export": false,
+      "description": "Read-only access for observing queue pressure and audit trails."
+    },
+    {
+      "role": "triager",
+      "allowed_decisions": ["approve", "review"],
+      "can_resolve": true,
+      "can_export": true,
+      "allowed_groups": ["triagers"],
+      "description": "Group-restricted triager role for identity-backed approvals."
+    },
+    {
+      "role": "admin",
+      "allowed_decisions": ["approve", "review", "block"],
+      "can_resolve": true,
+      "can_export": true,
+      "allowed_groups": ["admins"],
+      "description": "Administrative reviewers can inspect audits and resolve conflicts."
+    }
+  ]
+}

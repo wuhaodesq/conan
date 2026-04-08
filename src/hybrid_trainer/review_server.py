@@ -11,6 +11,8 @@ from urllib.parse import parse_qs, urlparse
 
 from .human_review import HumanReviewDecision
 from .review_audit import create_review_audit_event
+from .review_identity import IdentityProvider, ReviewIdentity, build_identity_provider_from_file
+from .review_permissions import ReviewPermissionPolicy
 from .review_session import ReviewSession
 from .review_store import ReviewStore, build_review_store
 
@@ -22,10 +24,12 @@ def build_review_server(
     host: str = "127.0.0.1",
     port: int = 8000,
     store: ReviewStore | None = None,
+    identity_provider: IdentityProvider | None = None,
 ) -> ThreadingHTTPServer:
     app = ReviewServerApp(
         auth_token=auth_token,
         store=store or build_review_store(session_path=session_path, audit_log_path=audit_log_path),
+        identity_provider=identity_provider,
     )
 
     class Handler(BaseHTTPRequestHandler):
@@ -50,6 +54,7 @@ def serve_review_server(
     host: str = "127.0.0.1",
     port: int = 8000,
     store: ReviewStore | None = None,
+    identity_provider: IdentityProvider | None = None,
 ) -> None:
     server = build_review_server(
         session_path=session_path,
@@ -58,78 +63,135 @@ def serve_review_server(
         host=host,
         port=port,
         store=store,
+        identity_provider=identity_provider,
     )
     with server:
         server.serve_forever()
 
 
 class ReviewServerApp:
-    def __init__(self, auth_token: str, store: ReviewStore) -> None:
+    def __init__(
+        self,
+        auth_token: str,
+        store: ReviewStore,
+        identity_provider: IdentityProvider | None = None,
+    ) -> None:
         self.auth_token = auth_token
         self.store = store
+        self.identity_provider = identity_provider
         self._lock = threading.Lock()
 
     def handle(self, handler: BaseHTTPRequestHandler) -> None:
         parsed = urlparse(handler.path)
-        if not self._authenticate(handler, parsed):
+        identity = self._authenticate(handler, parsed)
+        if identity is None:
             self._send_json(handler, HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
             return
 
         if handler.command == "GET" and parsed.path == "/":
-            self._send_html(handler, self._render_index(parsed))
+            self._send_html(handler, self._render_index(parsed, identity))
+            return
+        if handler.command == "GET" and parsed.path == "/api/identity":
+            self._send_json(handler, HTTPStatus.OK, identity.to_dict())
             return
         if handler.command == "GET" and parsed.path == "/api/session":
             session = self.store.load_session()
-            self._send_json(handler, HTTPStatus.OK, session.to_dict())
+            payload = session.to_dict()
+            payload["identity"] = identity.to_dict()
+            self._send_json(handler, HTTPStatus.OK, payload)
             return
         if handler.command == "GET" and parsed.path == "/api/audit":
             role = _query_value(parsed, "role", "viewer")
+            session = self.store.load_session()
+            policy = ReviewPermissionPolicy.from_dict(session.permission_policy)
             if role != "admin":
                 self._send_json(handler, HTTPStatus.FORBIDDEN, {"error": "admin role required"})
                 return
+            role_policy = policy.resolve(role)
+            if self.identity_provider is not None and not role_policy.allows_identity(identity):
+                self._send_json(handler, HTTPStatus.FORBIDDEN, {"error": "identity not permitted for admin audit access"})
+                return
             events = [item.to_dict() for item in self.store.load_audit_events()]
-            self._send_json(handler, HTTPStatus.OK, {"events": events})
+            self._send_json(handler, HTTPStatus.OK, {"events": events, "identity": identity.to_dict()})
             return
         if handler.command == "POST" and parsed.path == "/api/decisions":
-            payload = self._read_json(handler)
-            reviewer = str(payload["reviewer"])
-            role = str(payload["role"])
-            decisions = [HumanReviewDecision.from_dict(item) for item in payload.get("decisions", [])]
-            with self._lock:
-                session = self.store.load_session()
-                session.sync_reviewer_submission(reviewer=reviewer, role=role, decisions=decisions)
-                self.store.save_session(session)
-                self.store.append_audit_event(
-                    create_review_audit_event(
-                        action="decisions_submitted",
-                        actor=reviewer,
-                        role=role,
-                        session_id=session.session_id,
-                        payload={
-                            "decision_count": len(decisions),
-                            "iterations": [item.iteration for item in decisions],
-                        },
-                    ),
+            try:
+                payload = self._read_json(handler)
+                reviewer = str(payload.get("reviewer", identity.subject))
+                role = str(payload["role"])
+                decisions = [HumanReviewDecision.from_dict(item) for item in payload.get("decisions", [])]
+                audit_identity = (
+                    identity
+                    if self.identity_provider is not None
+                    else ReviewIdentity(subject=reviewer, display_name=reviewer, claims={"auth_mode": "shared-token"})
                 )
+                if self.identity_provider is not None and reviewer != identity.subject:
+                    raise PermissionError(
+                        f"submitted reviewer {reviewer!r} does not match authenticated identity {identity.subject!r}"
+                    )
+                session = self.store.load_session()
+                policy = ReviewPermissionPolicy.from_dict(session.permission_policy)
+                role_policy = policy.resolve(role)
+                if self.identity_provider is not None and not role_policy.allows_identity(identity):
+                    raise PermissionError(f"identity {identity.subject!r} is not allowed to use role {role!r}")
+                with self._lock:
+                    session = self.store.load_session()
+                    session.sync_reviewer_submission(
+                        reviewer=reviewer,
+                        role=role,
+                        decisions=decisions,
+                        identity=identity if self.identity_provider is not None else None,
+                    )
+                    self.store.save_session(session)
+                    self.store.append_audit_event(
+                        create_review_audit_event(
+                            action="decisions_submitted",
+                            actor=audit_identity.display_name or audit_identity.subject,
+                            role=role,
+                            session_id=session.session_id,
+                            payload={
+                                "decision_count": len(decisions),
+                                "iterations": [item.iteration for item in decisions],
+                                "identity": audit_identity.to_dict(),
+                            },
+                        ),
+                    )
+            except PermissionError as exc:
+                self._send_json(handler, HTTPStatus.FORBIDDEN, {"error": str(exc)})
+                return
+            except (KeyError, ValueError, json.JSONDecodeError) as exc:
+                self._send_json(handler, HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
             self._send_json(
                 handler,
                 HTTPStatus.OK,
-                {
-                    "session": session.to_dict(),
-                    "summary": session.summary(),
-                },
+                {**session.to_dict(), "identity": identity.to_dict()},
             )
             return
 
         self._send_json(handler, HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
-    def _authenticate(self, handler: BaseHTTPRequestHandler, parsed) -> bool:
+    def _authenticate(self, handler: BaseHTTPRequestHandler, parsed) -> ReviewIdentity | None:
         header = handler.headers.get("Authorization", "")
         if header.startswith("Bearer "):
             token = header[len("Bearer "):]
         else:
             token = _query_value(parsed, "token", "")
-        return bool(token) and secrets.compare_digest(token, self.auth_token)
+        if not token:
+            return None
+        if self.identity_provider is not None:
+            try:
+                return self.identity_provider.resolve(token)
+            except PermissionError:
+                return None
+        if not self.auth_token or not secrets.compare_digest(token, self.auth_token):
+            return None
+        reviewer = _query_value(parsed, "reviewer", "reviewer")
+        return ReviewIdentity(
+            subject=reviewer,
+            display_name=reviewer,
+            claims={"auth_mode": "shared-token"},
+        )
 
     def _read_json(self, handler: BaseHTTPRequestHandler) -> dict:
         length = int(handler.headers.get("Content-Length", "0"))
@@ -139,11 +201,12 @@ class ReviewServerApp:
             raise ValueError("request body must be a JSON object")
         return payload
 
-    def _render_index(self, parsed) -> str:
-        reviewer = _query_value(parsed, "reviewer", "web_reviewer")
+    def _render_index(self, parsed, identity: ReviewIdentity) -> str:
+        reviewer = identity.display_name or identity.subject or _query_value(parsed, "reviewer", "web_reviewer")
         role = _query_value(parsed, "role", "reviewer")
         token = _query_value(parsed, "token", "")
         session = self.store.load_session()
+        identity_payload = json.dumps(identity.to_dict(), ensure_ascii=False)
         return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -231,11 +294,15 @@ class ReviewServerApp:
     <section class="panel">
       <h1>Review Server Workbench</h1>
       <p>Authenticated server-side review session for {reviewer} ({role}). Session: {session.session_id}</p>
-      <p>Use the same Bearer token for the API endpoints below. Submitted decisions are persisted through the configured review store and appended to the audit trail.</p>
+      <p>Identity-backed access uses the configured provider when present; otherwise the legacy shared bearer token flow remains available.</p>
     </section>
     <section class="panel">
       <h2>Session API</h2>
       <pre id="session-json">loading...</pre>
+    </section>
+    <section class="panel">
+      <h2>Identity API</h2>
+      <pre id="identity-json">loading...</pre>
     </section>
     <section class="panel">
       <h2>Submit Decisions</h2>
@@ -252,8 +319,9 @@ class ReviewServerApp:
     </section>
   </main>
   <script>
+    const identity = {identity_payload};
     const authToken = {json.dumps(token)};
-    const reviewer = {json.dumps(reviewer)};
+    const reviewer = identity.subject || {json.dumps(reviewer)};
     const role = {json.dumps(role)};
 
     async function loadSession() {{
@@ -262,6 +330,14 @@ class ReviewServerApp:
       }});
       const payload = await response.json();
       document.getElementById('session-json').textContent = JSON.stringify(payload.summary || payload, null, 2);
+    }}
+
+    async function loadIdentity() {{
+      const response = await fetch('/api/identity', {{
+        headers: {{ Authorization: `Bearer ${{authToken}}` }}
+      }});
+      const payload = await response.json();
+      document.getElementById('identity-json').textContent = JSON.stringify(payload, null, 2);
     }}
 
     async function submitDecisions() {{
@@ -290,10 +366,12 @@ class ReviewServerApp:
       const payload = await response.json();
       document.getElementById('submit-result').textContent = JSON.stringify(payload, null, 2);
       await loadSession();
+      await loadIdentity();
     }}
 
     document.getElementById('submit').addEventListener('click', submitDecisions);
     loadSession();
+    loadIdentity();
   </script>
 </body>
 </html>
@@ -337,10 +415,19 @@ def _decision_rows(session: ReviewSession) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Serve the hybrid trainer review session web app")
     parser.add_argument("--session", default="", help="review session JSON path or bootstrap file for SQLite store")
-    parser.add_argument("--auth-token", required=True, help="Bearer token used for all review server requests")
+    parser.add_argument(
+        "--auth-token",
+        default="",
+        help="legacy shared bearer token used when no identity provider config is supplied",
+    )
     parser.add_argument("--audit-log", default="", help="audit log JSONL path for file store mode")
     parser.add_argument("--sqlite-db", default="", help="optional SQLite database path for persisted review storage")
     parser.add_argument("--session-id", default="", help="session id to load from SQLite store")
+    parser.add_argument(
+        "--identity-provider-config",
+        default="",
+        help="optional identity provider JSON config for static or OIDC introspection modes",
+    )
     parser.add_argument("--host", default="127.0.0.1", help="bind host")
     parser.add_argument("--port", type=int, default=8000, help="bind port")
     return parser
@@ -359,14 +446,23 @@ def build_store_from_args(ns: argparse.Namespace) -> ReviewStore:
     )
 
 
+def build_identity_provider_from_args(ns: argparse.Namespace) -> IdentityProvider | None:
+    if ns.identity_provider_config:
+        return build_identity_provider_from_file(ns.identity_provider_config)
+    return None
+
+
 def main(args: list[str] | None = None) -> None:
     parser = build_parser()
     ns = parser.parse_args(args=args)
+    if not ns.identity_provider_config and not ns.auth_token:
+        parser.error("--auth-token is required unless --identity-provider-config is set")
     serve_review_server(
         auth_token=ns.auth_token,
         host=ns.host,
         port=ns.port,
         store=build_store_from_args(ns),
+        identity_provider=build_identity_provider_from_args(ns),
     )
 
 

@@ -43,6 +43,10 @@ def render_review_workbench_html(
             f"<strong>{escape(item.role)}</strong>"
             f"<span>{escape(item.description or 'No description')}</span>"
             f"<em>decisions: {escape(', '.join(item.allowed_decisions) or 'none')}</em>"
+            f"<em>subjects: {escape(', '.join(item.allowed_subjects) or 'any')}</em>"
+            f"<em>groups: {escape(', '.join(item.allowed_groups) or 'any')}</em>"
+            f"<em>emails: {escape(', '.join(item.allowed_emails) or 'any')}</em>"
+            f"<em>issuers: {escape(', '.join(item.allowed_issuers) or 'any')}</em>"
             "</article>"
         )
         for item in policy.roles.values()
@@ -58,6 +62,10 @@ def render_review_workbench_html(
             "reviewer": reviewer,
             "role": role,
             "allowed_decisions": allowed_decisions,
+            "allowed_subjects": list(role_policy.allowed_subjects),
+            "allowed_groups": list(role_policy.allowed_groups),
+            "allowed_emails": list(role_policy.allowed_emails),
+            "allowed_issuers": list(role_policy.allowed_issuers),
             "can_export": can_export,
         },
         ensure_ascii=False,

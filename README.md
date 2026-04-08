@@ -46,9 +46,10 @@
 │       ├── model_service.py
 │       ├── pipeline.py
 │       ├── policy_registry.py
-│       ├── report.py
-│       ├── review_audit.py
-│       ├── review_permissions.py
+    │       ├── report.py
+    │       ├── review_audit.py
+    │       ├── review_identity.py
+    │       ├── review_permissions.py
 │       ├── reward_drift.py
 │       ├── reward_policy.py
 │       ├── review_consensus.py
@@ -86,6 +87,7 @@
     ├── test_search.py
     ├── test_report.py
     ├── test_review_consensus.py
+    ├── test_review_identity.py
     ├── test_review_server.py
     ├── test_review_store.py
     ├── test_review_session.py
@@ -123,6 +125,9 @@
 17. 创建并同步持久化 review session：`python -m hybrid_trainer.cli --review-session-output artifacts/review_session.json --review-session-id session-alpha --review-budget 3 --output artifacts/run_summary.json`
 18. 启动带鉴权与审计日志的 review server：`python -m hybrid_trainer.review_server --session artifacts/review_session.json --auth-token demo-token --audit-log artifacts/review_audit.jsonl --port 8000`
 19. 启动 SQLite review server：`python -m hybrid_trainer.review_server --sqlite-db artifacts/review.sqlite --session artifacts/review_session.json --auth-token demo-token --port 8000`
+20. 创建带群组约束的 review session：`python -m hybrid_trainer.cli --review-session-output artifacts/review_session_identity.json --review-permissions-config examples/review_permissions_identity.json --review-budget 3 --output artifacts/run_summary.json`
+21. 启动静态身份 provider 的 review server：`python -m hybrid_trainer.review_server --identity-provider-config examples/identity_provider_static.json --session artifacts/review_session_identity.json --port 8000`，然后用 `/?token=alice-token&reviewer=alice&role=triager` 打开页面。
+22. 对接 OIDC/SSO introspection：`python -m hybrid_trainer.review_server --identity-provider-config examples/identity_provider_oidc.json --session artifacts/review_session_identity.json --port 8000`
 
 ## 当前已完成的开发
 
@@ -162,7 +167,9 @@
 - 持久化 review session：支持保存审批 session、同步多 reviewer 的提交状态，并导出聚合后的 `review_decisions.json` 供 CLI 共识或回填流程复用。
 - 带鉴权和审计日志的 review server：支持以 Bearer token 保护 session API、服务端决策提交与 JSONL 审计记录，使 Web 审批从静态页升级为可运行的服务端应用。
 - 数据库化 review store：支持用 SQLite 持久化 review session 与审计日志，并保留文件后端作为兼容模式。
+- 身份提供方与细粒度审批权限：支持静态 token 映射与 OIDC/SSO introspection 身份解析，并按 subject/group/email/issuer 约束审批角色。
 
 ## 新的探索方向
 
-- 对接真实身份提供方（OIDC/SSO）与细粒度审批权限。
+- 对接完整 OIDC 授权码流程与刷新令牌处理。
+- 把 review store 进一步升级为 PostgreSQL 或云对象存储后端。

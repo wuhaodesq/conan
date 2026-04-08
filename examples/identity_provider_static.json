@@ -1,0 +1,23 @@
+{
+  "mode": "static",
+  "tokens": {
+    "alice-token": {
+      "subject": "alice",
+      "display_name": "Alice Example",
+      "email": "alice@example.com",
+      "groups": ["triagers"],
+      "claims": {
+        "iss": "local-dev"
+      }
+    },
+    "admin-token": {
+      "subject": "carol",
+      "display_name": "Carol Admin",
+      "email": "carol@example.com",
+      "groups": ["admins"],
+      "claims": {
+        "iss": "local-dev"
+      }
+    }
+  }
+}
