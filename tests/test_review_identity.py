@@ -111,6 +111,16 @@ def test_static_identity_provider_and_group_permissions(tmp_path) -> None:
     assert role_policy.allows_identity(observer) is False
 
 
+def test_example_identity_and_permission_configs_parse() -> None:
+    static_provider = build_identity_provider_from_file("examples/identity_provider_static.json")
+    oidc_provider = build_identity_provider_from_file("examples/identity_provider_oidc.json")
+    policy = ReviewPermissionPolicy.from_file("examples/review_permissions_identity.json")
+
+    assert isinstance(static_provider, StaticIdentityProvider)
+    assert isinstance(oidc_provider, IntrospectionIdentityProvider)
+    assert policy.resolve("triager").allowed_groups == ("triagers",)
+
+
 def test_introspection_identity_provider_and_review_server_permissions(tmp_path) -> None:
     introspection_server, introspection_thread = _start_introspection_server(
         {
