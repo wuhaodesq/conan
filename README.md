@@ -17,6 +17,8 @@
 ```text
 .
 ├── README.md
+├── examples/
+│   └── runtime_config.json
 ├── hybrid_self_improvement_training_plan.md
 ├── src/
 │   └── hybrid_trainer/
@@ -38,6 +40,7 @@
 │       ├── reward_drift.py
 │       ├── reward_policy.py
 │       ├── review_router.py
+│       ├── runtime_config.py
 │       ├── search.py
 │       ├── state.py
 │       ├── strategy.py
@@ -63,7 +66,8 @@
     ├── test_state.py
     ├── test_strategy.py
     ├── test_triggers.py
-    └── test_verifier.py
+    ├── test_verifier.py
+    └── test_runtime_config.py
 ```
 
 ## 快速开始
@@ -73,6 +77,7 @@
 3. 运行测试：`pytest -q`
 4. 运行模拟：`python -m hybrid_trainer.cli --start 1 --end 10`
 5. 导出事件/状态：`python -m hybrid_trainer.cli --events-output artifacts/events.jsonl --state-output artifacts/state.json`
+6. 使用运行时配置：`python -m hybrid_trainer.cli --config examples/runtime_config.json`
 
 ## 当前已完成的开发
 
@@ -98,10 +103,10 @@
 - 成本分析：支持估算自动评估与人工复核成本并输出到运行摘要。
 - Reward 策略注册表：支持策略版本注册与激活切换，便于回溯与灰度。
 - 多路径搜索：支持在单轮中采样多条候选路径并选择最优路径。
+- 运行时配置：支持通过 JSON/CLI 覆盖 reward policy 与节点触发规则，并将配置写入运行摘要。
 
 ## 下一步开发方向
 
 - 接入真实 task generator/verifier。
-- 引入可配置 reward policy 与版本管理。
 - 打通 SFT/RL 训练执行器与实验日志。
-- 增加人工决策台与节点触发规则配置。
+- 增加人工决策台。

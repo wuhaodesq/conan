@@ -11,6 +11,7 @@ from .failure_analysis import FailureTaxonomy, analyze_failures
 from .generation import TaskGenerator, TaskSample
 from .human_review import HumanReviewDecision, HumanReviewItem, HumanReviewQueue
 from .metrics import DecisionMetrics, summarize_decisions
+from .runtime_config import RuntimeConfig, load_runtime_config
 from .reward_policy import RewardPolicy
 from .reward_drift import RewardDriftReport, compute_reward_drift
 from .search import PathCandidate, select_best_path
@@ -26,7 +27,7 @@ from .pipeline import (
 )
 from .state import EngineStateSnapshot, load_snapshot, save_snapshot
 from .strategy import StrategyManager, StrategySwitchRecord, TrainingStrategy
-from .triggers import NodeTriggerRecommendation, recommend_major_nodes
+from .triggers import NodeTriggerRecommendation, TriggerRuleConfig, recommend_major_nodes
 from .verifier import SimpleVerifier, VerifierResult
 
 __all__ = [
@@ -58,6 +59,7 @@ __all__ = [
     "RewardDriftReport",
     "RewardPolicy",
     "RoutedReviewBatch",
+    "RuntimeConfig",
     "SimpleVerifier",
     "StrategyManager",
     "StrategySwitchRecord",
@@ -66,11 +68,13 @@ __all__ = [
     "TrainingEngine",
     "TrainingPipeline",
     "TrainingStrategy",
+    "TriggerRuleConfig",
     "VerifierResult",
     "analyze_failures",
     "build_dashboard",
     "compute_reward_drift",
     "estimate_cost",
+    "load_runtime_config",
     "load_snapshot",
     "recommend_major_nodes",
     "route_review_items",

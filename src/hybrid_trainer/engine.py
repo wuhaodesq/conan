@@ -19,7 +19,7 @@ from .review_router import RoutedReviewBatch, route_review_items
 from .search import PathCandidate, select_best_path
 from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
-from .triggers import NodeTriggerRecommendation, recommend_major_nodes
+from .triggers import NodeTriggerRecommendation, TriggerRuleConfig, recommend_major_nodes
 from .verifier import SimpleVerifier
 
 
@@ -41,6 +41,7 @@ class TrainingEngine:
     curriculum_manager: CurriculumManager = field(default_factory=CurriculumManager)
     policy_registry: PolicyRegistry = field(default_factory=PolicyRegistry)
     tracker: ExperimentTracker = field(default_factory=ExperimentTracker)
+    trigger_rules: TriggerRuleConfig = field(default_factory=TriggerRuleConfig)
 
 
     def __post_init__(self) -> None:
@@ -155,7 +156,7 @@ class TrainingEngine:
         return metrics
 
     def recommend_nodes(self) -> list[NodeTriggerRecommendation]:
-        recommendations = recommend_major_nodes(self.summarize_metrics())
+        recommendations = recommend_major_nodes(self.summarize_metrics(), self.trigger_rules)
         self.tracker.track(
             event_type="nodes_recommended",
             payload={"nodes": [item.node.value for item in recommendations]},
@@ -241,7 +242,7 @@ class TrainingEngine:
     def generate_dashboard(self) -> DecisionDashboard:
         metrics = self.summarize_metrics()
         failures = self.diagnose_failures()
-        recommendations = recommend_major_nodes(metrics)
+        recommendations = recommend_major_nodes(metrics, self.trigger_rules)
         dashboard = build_dashboard(metrics, failures, recommendations)
         self.tracker.track(
             event_type="dashboard_generated",

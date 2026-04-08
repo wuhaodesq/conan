@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import json
 from pathlib import Path
 
 from .engine import TrainingEngine
-from .pipeline import DecisionNode
+from .pipeline import DecisionNode, PipelineConfig, TrainingPipeline
+from .runtime_config import RuntimeConfig, load_runtime_config
 from .state import save_snapshot
 
 
@@ -23,14 +25,82 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=str, default="artifacts/run_summary.json", help="summary output path")
     parser.add_argument("--events-output", type=str, default="", help="optional events JSONL export path")
     parser.add_argument("--state-output", type=str, default="", help="optional state snapshot JSON path")
+    parser.add_argument("--config", type=str, default="", help="optional runtime JSON config path")
+    parser.add_argument("--policy-version", type=str, default=None, help="override reward policy version")
+    parser.add_argument("--approve-threshold", type=float, default=None, help="override reward approve threshold")
+    parser.add_argument("--review-band", type=float, default=None, help="override reward review band")
+    parser.add_argument(
+        "--blocked-keyword",
+        action="append",
+        default=[],
+        help="append a blocked keyword to the active reward policy",
+    )
+    parser.add_argument(
+        "--trigger-min-samples",
+        type=int,
+        default=None,
+        help="minimum sample count before major node recommendations activate",
+    )
+    parser.add_argument(
+        "--failure-review-block-ratio",
+        type=float,
+        default=None,
+        help="override block ratio threshold for failure review recommendation",
+    )
+    parser.add_argument(
+        "--reward-calibration-review-ratio",
+        type=float,
+        default=None,
+        help="override review ratio threshold for reward calibration recommendation",
+    )
+    parser.add_argument(
+        "--curriculum-shift-approve-ratio",
+        type=float,
+        default=None,
+        help="override approve ratio threshold for curriculum shift recommendation",
+    )
     return parser
+
+
+def _resolve_runtime_config(ns: argparse.Namespace) -> RuntimeConfig:
+    runtime_config = load_runtime_config(ns.config) if ns.config else RuntimeConfig()
+
+    reward_policy = runtime_config.reward_policy
+    if ns.policy_version is not None:
+        reward_policy = replace(reward_policy, version=ns.policy_version)
+    if ns.approve_threshold is not None:
+        reward_policy = replace(reward_policy, approve_threshold=ns.approve_threshold)
+    if ns.review_band is not None:
+        reward_policy = replace(reward_policy, review_band=ns.review_band)
+    if ns.blocked_keyword:
+        combined_keywords = tuple(dict.fromkeys([*reward_policy.blocked_keywords, *ns.blocked_keyword]))
+        reward_policy = replace(reward_policy, blocked_keywords=combined_keywords)
+
+    trigger_rules = runtime_config.trigger_rules
+    trigger_overrides = {}
+    if ns.trigger_min_samples is not None:
+        trigger_overrides["min_samples"] = ns.trigger_min_samples
+    if ns.failure_review_block_ratio is not None:
+        trigger_overrides["failure_review_block_ratio"] = ns.failure_review_block_ratio
+    if ns.reward_calibration_review_ratio is not None:
+        trigger_overrides["reward_calibration_review_ratio"] = ns.reward_calibration_review_ratio
+    if ns.curriculum_shift_approve_ratio is not None:
+        trigger_overrides["curriculum_shift_approve_ratio"] = ns.curriculum_shift_approve_ratio
+    if trigger_overrides:
+        trigger_rules = replace(trigger_rules, **trigger_overrides)
+
+    return RuntimeConfig(reward_policy=reward_policy, trigger_rules=trigger_rules)
 
 
 def run(args: list[str] | None = None) -> Path:
     parser = build_parser()
     ns = parser.parse_args(args=args)
 
-    engine = TrainingEngine()
+    runtime_config = _resolve_runtime_config(ns)
+    engine = TrainingEngine(
+        pipeline=TrainingPipeline(config=PipelineConfig(reward_policy=runtime_config.reward_policy)),
+        trigger_rules=runtime_config.trigger_rules,
+    )
     node = DecisionNode(ns.node)
     engine.run_cycles(ns.start, ns.end, node)
 
@@ -43,6 +113,7 @@ def run(args: list[str] | None = None) -> Path:
     payload = {
         "range": {"start": ns.start, "end": ns.end},
         "node": ns.node,
+        "config": runtime_config.to_dict(),
         "dashboard": dashboard.to_dict(),
         "reward_drift": {
             "total": drift.total,

@@ -1,0 +1,17 @@
+{
+  "reward_policy": {
+    "version": "v2",
+    "approve_threshold": 0.85,
+    "review_band": 0.1,
+    "blocked_keywords": [
+      "shortcut",
+      "forbidden"
+    ]
+  },
+  "trigger_rules": {
+    "min_samples": 5,
+    "failure_review_block_ratio": 0.35,
+    "reward_calibration_review_ratio": 0.25,
+    "curriculum_shift_approve_ratio": 0.9
+  }
+}
