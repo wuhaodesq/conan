@@ -4,28 +4,28 @@ import argparse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
-from pathlib import Path
 import secrets
 import threading
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from .human_review import HumanReviewDecision
-from .review_audit import append_review_audit_event, create_review_audit_event, load_review_audit_events
-from .review_session import ReviewSession, load_review_session, save_review_session
+from .review_audit import create_review_audit_event
+from .review_session import ReviewSession
+from .review_store import ReviewStore, build_review_store
 
 
 def build_review_server(
-    session_path: str,
-    auth_token: str,
-    audit_log_path: str,
+    session_path: str = "",
+    auth_token: str = "",
+    audit_log_path: str = "",
     host: str = "127.0.0.1",
     port: int = 8000,
+    store: ReviewStore | None = None,
 ) -> ThreadingHTTPServer:
     app = ReviewServerApp(
-        session_path=session_path,
         auth_token=auth_token,
-        audit_log_path=audit_log_path,
+        store=store or build_review_store(session_path=session_path, audit_log_path=audit_log_path),
     )
 
     class Handler(BaseHTTPRequestHandler):
@@ -44,11 +44,12 @@ def build_review_server(
 
 
 def serve_review_server(
-    session_path: str,
-    auth_token: str,
-    audit_log_path: str,
+    session_path: str = "",
+    auth_token: str = "",
+    audit_log_path: str = "",
     host: str = "127.0.0.1",
     port: int = 8000,
+    store: ReviewStore | None = None,
 ) -> None:
     server = build_review_server(
         session_path=session_path,
@@ -56,16 +57,16 @@ def serve_review_server(
         audit_log_path=audit_log_path,
         host=host,
         port=port,
+        store=store,
     )
     with server:
         server.serve_forever()
 
 
 class ReviewServerApp:
-    def __init__(self, session_path: str, auth_token: str, audit_log_path: str) -> None:
-        self.session_path = session_path
+    def __init__(self, auth_token: str, store: ReviewStore) -> None:
         self.auth_token = auth_token
-        self.audit_log_path = audit_log_path
+        self.store = store
         self._lock = threading.Lock()
 
     def handle(self, handler: BaseHTTPRequestHandler) -> None:
@@ -78,7 +79,7 @@ class ReviewServerApp:
             self._send_html(handler, self._render_index(parsed))
             return
         if handler.command == "GET" and parsed.path == "/api/session":
-            session = load_review_session(self.session_path)
+            session = self.store.load_session()
             self._send_json(handler, HTTPStatus.OK, session.to_dict())
             return
         if handler.command == "GET" and parsed.path == "/api/audit":
@@ -86,7 +87,7 @@ class ReviewServerApp:
             if role != "admin":
                 self._send_json(handler, HTTPStatus.FORBIDDEN, {"error": "admin role required"})
                 return
-            events = [item.to_dict() for item in load_review_audit_events(self.audit_log_path)]
+            events = [item.to_dict() for item in self.store.load_audit_events()]
             self._send_json(handler, HTTPStatus.OK, {"events": events})
             return
         if handler.command == "POST" and parsed.path == "/api/decisions":
@@ -95,11 +96,10 @@ class ReviewServerApp:
             role = str(payload["role"])
             decisions = [HumanReviewDecision.from_dict(item) for item in payload.get("decisions", [])]
             with self._lock:
-                session = load_review_session(self.session_path)
+                session = self.store.load_session()
                 session.sync_reviewer_submission(reviewer=reviewer, role=role, decisions=decisions)
-                save_review_session(session, self.session_path)
-                append_review_audit_event(
-                    self.audit_log_path,
+                self.store.save_session(session)
+                self.store.append_audit_event(
                     create_review_audit_event(
                         action="decisions_submitted",
                         actor=reviewer,
@@ -143,7 +143,7 @@ class ReviewServerApp:
         reviewer = _query_value(parsed, "reviewer", "web_reviewer")
         role = _query_value(parsed, "role", "reviewer")
         token = _query_value(parsed, "token", "")
-        session = load_review_session(self.session_path)
+        session = self.store.load_session()
         return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -231,7 +231,7 @@ class ReviewServerApp:
     <section class="panel">
       <h1>Review Server Workbench</h1>
       <p>Authenticated server-side review session for {reviewer} ({role}). Session: {session.session_id}</p>
-      <p>Use the same Bearer token for the API endpoints below. Submitted decisions are persisted to the review session file and appended to the audit log.</p>
+      <p>Use the same Bearer token for the API endpoints below. Submitted decisions are persisted through the configured review store and appended to the audit trail.</p>
     </section>
     <section class="panel">
       <h2>Session API</h2>
@@ -336,23 +336,37 @@ def _decision_rows(session: ReviewSession) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Serve the hybrid trainer review session web app")
-    parser.add_argument("--session", required=True, help="review session JSON path")
+    parser.add_argument("--session", default="", help="review session JSON path or bootstrap file for SQLite store")
     parser.add_argument("--auth-token", required=True, help="Bearer token used for all review server requests")
-    parser.add_argument("--audit-log", required=True, help="audit log JSONL path")
+    parser.add_argument("--audit-log", default="", help="audit log JSONL path for file store mode")
+    parser.add_argument("--sqlite-db", default="", help="optional SQLite database path for persisted review storage")
+    parser.add_argument("--session-id", default="", help="session id to load from SQLite store")
     parser.add_argument("--host", default="127.0.0.1", help="bind host")
     parser.add_argument("--port", type=int, default=8000, help="bind port")
     return parser
+
+
+def build_store_from_args(ns: argparse.Namespace) -> ReviewStore:
+    if ns.sqlite_db:
+        return build_review_store(
+            sqlite_db_path=ns.sqlite_db,
+            session_id=ns.session_id,
+            bootstrap_session_path=ns.session,
+        )
+    return build_review_store(
+        session_path=ns.session,
+        audit_log_path=ns.audit_log,
+    )
 
 
 def main(args: list[str] | None = None) -> None:
     parser = build_parser()
     ns = parser.parse_args(args=args)
     serve_review_server(
-        session_path=ns.session,
         auth_token=ns.auth_token,
-        audit_log_path=ns.audit_log,
         host=ns.host,
         port=ns.port,
+        store=build_store_from_args(ns),
     )
 
 

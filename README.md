@@ -54,6 +54,7 @@
 │       ├── review_consensus.py
 │       ├── review_router.py
 │       ├── review_server.py
+│       ├── review_store.py
 │       ├── review_session.py
 │       ├── review_web.py
 │       ├── runtime_config.py
@@ -86,6 +87,7 @@
     ├── test_report.py
     ├── test_review_consensus.py
     ├── test_review_server.py
+    ├── test_review_store.py
     ├── test_review_session.py
     ├── test_review_web.py
     ├── test_reward_drift.py
@@ -120,6 +122,7 @@
 16. 导出带权限控制的 Web 审批页：`python -m hybrid_trainer.cli --review-web-output artifacts/review_workbench.html --reviewer alice --review-role triager --review-permissions-config examples/review_permissions.json --review-budget 3 --output artifacts/run_summary.json`
 17. 创建并同步持久化 review session：`python -m hybrid_trainer.cli --review-session-output artifacts/review_session.json --review-session-id session-alpha --review-budget 3 --output artifacts/run_summary.json`
 18. 启动带鉴权与审计日志的 review server：`python -m hybrid_trainer.review_server --session artifacts/review_session.json --auth-token demo-token --audit-log artifacts/review_audit.jsonl --port 8000`
+19. 启动 SQLite review server：`python -m hybrid_trainer.review_server --sqlite-db artifacts/review.sqlite --session artifacts/review_session.json --auth-token demo-token --port 8000`
 
 ## 当前已完成的开发
 
@@ -158,8 +161,8 @@
 - Web 审批回填与权限管理：支持导出可直接下载 `review_decisions.json` 的审批工作台，并通过角色策略控制可见性与可执行决策范围。
 - 持久化 review session：支持保存审批 session、同步多 reviewer 的提交状态，并导出聚合后的 `review_decisions.json` 供 CLI 共识或回填流程复用。
 - 带鉴权和审计日志的 review server：支持以 Bearer token 保护 session API、服务端决策提交与 JSONL 审计记录，使 Web 审批从静态页升级为可运行的服务端应用。
+- 数据库化 review store：支持用 SQLite 持久化 review session 与审计日志，并保留文件后端作为兼容模式。
 
 ## 新的探索方向
 
-- 接入真实的数据库或对象存储，替代本地 JSON 文件后端。
 - 对接真实身份提供方（OIDC/SSO）与细粒度审批权限。

@@ -40,6 +40,7 @@ from .review_session import (
     load_review_session,
     save_review_session,
 )
+from .review_store import FileReviewStore, ReviewStore, SqliteReviewStore, build_review_store
 from .review_web import render_review_workbench_html, save_review_workbench_html
 from .policy_registry import PolicyRegistry, PolicyVersionRecord
 from .pipeline import (
@@ -130,6 +131,7 @@ __all__ = [
     "build_review_consensus",
     "build_dashboard",
     "build_review_server",
+    "build_review_store",
     "compute_reward_drift",
     "create_review_audit_event",
     "estimate_cost",
@@ -163,5 +165,8 @@ __all__ = [
     "select_best_path",
     "select_uncertain_samples",
     "serve_review_server",
+    "FileReviewStore",
+    "ReviewStore",
+    "SqliteReviewStore",
     "summarize_decisions",
 ]
