@@ -9,6 +9,7 @@ def test_cli_can_export_events_and_state(tmp_path) -> None:
     console_html = tmp_path / "console.html"
     review_batch = tmp_path / "review_batch.json"
     review_decisions = tmp_path / "review_decisions.json"
+    review_consensus = tmp_path / "review_consensus.json"
     events = tmp_path / "events.jsonl"
     state = tmp_path / "state.json"
     review_decisions.write_text(
@@ -20,6 +21,12 @@ def test_cli_can_export_events_and_state(tmp_path) -> None:
                         "final_decision": "approve",
                         "reviewer": "alice",
                         "note": "approved manually",
+                    },
+                    {
+                        "iteration": 1,
+                        "final_decision": "approve",
+                        "reviewer": "bob",
+                        "note": "approved by second reviewer",
                     }
                 ]
             }
@@ -42,6 +49,10 @@ def test_cli_can_export_events_and_state(tmp_path) -> None:
         str(review_batch),
         "--review-decisions-input",
         str(review_decisions),
+        "--review-consensus-min-reviewers",
+        "2",
+        "--review-consensus-output",
+        str(review_consensus),
         "--events-output",
         str(events),
         "--state-output",
@@ -52,16 +63,20 @@ def test_cli_can_export_events_and_state(tmp_path) -> None:
     assert console.exists()
     assert console_html.exists()
     assert review_batch.exists()
+    assert review_consensus.exists()
     assert events.exists()
     assert state.exists()
 
     data = json.loads(summary.read_text(encoding="utf-8"))
     console_data = json.loads(console.read_text(encoding="utf-8"))
+    consensus_data = json.loads(review_consensus.read_text(encoding="utf-8"))
     assert "dashboard" in data
     assert data["human_review"]["resolved"] == 1
     assert "reward_drift" in data
     assert "review_queue" in console_data
     assert console_data["review_queue"]["resolved_count"] == 1
+    assert console_data["review_consensus"]["consensus_groups"] == 1
+    assert consensus_data["records"][0]["status"] == "consensus"
     assert "policy" in console_data
     assert "Visual Decision Console" in console_html.read_text(encoding="utf-8")
     assert events.read_text(encoding="utf-8").strip() != ""

@@ -11,6 +11,7 @@ def render_decision_console_html(console: DecisionConsole) -> str:
     metrics = data["dashboard"]["metrics"]
     failures = data["dashboard"]["failures"]
     review_queue = data["review_queue"]
+    review_consensus = data["review_consensus"]
     strategy = data["strategy"]
     curriculum = data["curriculum"]
     policy = data["policy"]
@@ -21,6 +22,7 @@ def render_decision_console_html(console: DecisionConsole) -> str:
         _metric_card("Review", metrics["review"], "Needs human calibration"),
         _metric_card("Block", metrics["block"], "Needs corrective action"),
         _metric_card("Pending Queue", review_queue["pending_count"], "Human review backlog"),
+        _metric_card("Consensus Groups", review_consensus["consensus_groups"], "Aligned panel outcomes"),
     ]
 
     recommendation_items = "".join(
@@ -291,6 +293,7 @@ def render_decision_console_html(console: DecisionConsole) -> str:
           <div><span>Total Cost</span><strong>{data['cost']['total_cost']:.3f}</strong></div>
           <div><span>Low Score Blocks</span><strong>{failures['low_score_block']}</strong></div>
           <div><span>Verifier Reviews</span><strong>{failures['verifier_override_review']}</strong></div>
+          <div><span>Arbitrated Conflicts</span><strong>{review_consensus['arbitrated_groups']}</strong></div>
         </div>
       </article>
 

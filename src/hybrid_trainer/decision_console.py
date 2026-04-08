@@ -163,6 +163,7 @@ class DecisionConsole:
     dashboard: DecisionDashboard
     major_node_recommendations: list[MajorNodeRecommendationView]
     review_queue: ReviewQueueConsole
+    review_consensus: dict
     active_learning: ActiveLearningConsole
     reward_drift: RewardDriftReport
     cost: CostReport
@@ -177,6 +178,7 @@ class DecisionConsole:
             "dashboard": self.dashboard.to_dict(),
             "major_node_recommendations": [item.to_dict() for item in self.major_node_recommendations],
             "review_queue": self.review_queue.to_dict(),
+            "review_consensus": self.review_consensus,
             "active_learning": self.active_learning.to_dict(),
             "reward_drift": {
                 "total": self.reward_drift.total,

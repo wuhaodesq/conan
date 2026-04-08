@@ -41,6 +41,7 @@
 │       ├── report.py
 │       ├── reward_drift.py
 │       ├── reward_policy.py
+│       ├── review_consensus.py
 │       ├── review_router.py
 │       ├── runtime_config.py
 │       ├── search.py
@@ -68,6 +69,7 @@
     ├── test_review_router.py
     ├── test_search.py
     ├── test_report.py
+    ├── test_review_consensus.py
     ├── test_reward_drift.py
     ├── test_reward_policy.py
     ├── test_state.py
@@ -94,6 +96,7 @@
 10. 使用任务数据集与参考答案 verifier：`python -m hybrid_trainer.cli --task-dataset examples/task_dataset.json --reference-verifier`
 11. 终端交互式人工审批：`python -m hybrid_trainer.cli --print-console --print-review-batch --interactive-review --reviewer alice`
 12. 导出可视化 HTML 决策台：`python -m hybrid_trainer.cli --console-html-output artifacts/decision_console.html`
+13. 多评审一致性与冲突仲裁：`python -m hybrid_trainer.cli --review-decisions-input artifacts/review_decisions.json --review-consensus-min-reviewers 2 --review-consensus-output artifacts/review_consensus.json`
 
 ## 当前已完成的开发
 
@@ -126,8 +129,8 @@
 - 数据接入型 generator/verifier：支持从 JSON/JSONL 任务集加载任务样本，并使用参考答案校验式 verifier 驱动更真实的任务验证。
 - 终端交互式决策台：支持将 console/review batch 渲染为人可读文本，并在 CLI 中逐条录入人工审批结论。
 - 可视化 HTML 决策台：支持从同一份 decision console 数据导出可离线打开、可分享的 Web 风格运营视图。
+- 多评审一致性与仲裁：支持按 iteration 聚合多位 reviewer 的投票结果，输出共识记录，并在冲突时采取保守仲裁。
 
 ## 下一步开发方向
 
-- 多评审人一致性与冲突仲裁。
 - 接入更真实的外部自动评估器与训练后端。

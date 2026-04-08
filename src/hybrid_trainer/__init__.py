@@ -24,6 +24,7 @@ from .reward_policy import RewardPolicy
 from .reward_drift import RewardDriftReport, compute_reward_drift
 from .search import PathCandidate, select_best_path
 from .report import DecisionDashboard, build_dashboard
+from .review_consensus import ReviewConsensusRecord, build_review_consensus, save_review_consensus
 from .review_router import RoutedReviewBatch, route_review_items, score_review_risk
 from .policy_registry import PolicyRegistry, PolicyVersionRecord
 from .pipeline import (
@@ -75,6 +76,7 @@ __all__ = [
     "ReferenceAnswerVerifier",
     "PolicyRegistry",
     "PolicyVersionRecord",
+    "ReviewConsensusRecord",
     "RewardDriftReport",
     "RewardPolicy",
     "RoutedReviewBatch",
@@ -93,6 +95,7 @@ __all__ = [
     "TriggerRuleConfig",
     "VerifierResult",
     "analyze_failures",
+    "build_review_consensus",
     "build_dashboard",
     "compute_reward_drift",
     "estimate_cost",
@@ -108,6 +111,7 @@ __all__ = [
     "route_review_items",
     "run_cli",
     "save_review_batch",
+    "save_review_consensus",
     "save_review_decisions",
     "save_decision_console",
     "save_decision_console_html",

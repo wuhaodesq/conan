@@ -11,6 +11,7 @@ from .runtime_config import RuntimeConfig, load_runtime_config
 from .decision_console import save_decision_console
 from .generation import DatasetTaskGenerator, TaskGenerator
 from .human_review import load_review_decisions, save_review_batch, save_review_decisions
+from .review_consensus import save_review_consensus
 from .state import save_snapshot
 from .strategy import TrainingStrategy
 from .terminal_ui import collect_review_decisions, render_decision_console, render_review_batch
@@ -36,6 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--task-dataset", type=str, default="", help="optional JSON/JSONL task dataset path")
     parser.add_argument("--review-batch-output", type=str, default="", help="optional pending review batch JSON path")
     parser.add_argument("--review-decisions-output", type=str, default="", help="optional review decisions JSON output path")
+    parser.add_argument("--review-consensus-output", type=str, default="", help="optional review consensus JSON output path")
     parser.add_argument(
         "--review-decisions-input",
         type=str,
@@ -49,6 +51,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--print-review-batch", action="store_true", help="render the selected review batch to stdout")
     parser.add_argument("--interactive-review", action="store_true", help="collect human review decisions interactively")
     parser.add_argument("--reviewer", type=str, default="cli_reviewer", help="reviewer name for interactive decisions")
+    parser.add_argument(
+        "--review-consensus-min-reviewers",
+        type=int,
+        default=1,
+        help="minimum reviewer count required before consensus or arbitration is applied",
+    )
     parser.add_argument(
         "--training-strategy",
         type=str,
@@ -168,7 +176,15 @@ def run(args: list[str] | None = None) -> Path:
     engine.run_cycles(ns.start, ns.end, node)
 
     if ns.review_decisions_input:
-        engine.apply_review_decisions(load_review_decisions(ns.review_decisions_input))
+        loaded_decisions = load_review_decisions(ns.review_decisions_input)
+        duplicate_iterations = len({item.iteration for item in loaded_decisions}) != len(loaded_decisions)
+        if ns.review_consensus_min_reviewers > 1 or duplicate_iterations:
+            min_reviewers = max(ns.review_consensus_min_reviewers, 2 if duplicate_iterations else 1)
+            records = engine.apply_review_consensus(loaded_decisions, min_reviewers=min_reviewers)
+            if ns.review_consensus_output:
+                save_review_consensus(records, ns.review_consensus_output)
+        else:
+            engine.apply_review_decisions(loaded_decisions)
 
     review_batch = None
     if ns.review_batch_output or ns.print_review_batch or ns.interactive_review:

@@ -27,6 +27,7 @@ from .pipeline import Decision, DecisionNode, IterationReport, TrainingPipeline
 from .policy_registry import PolicyRegistry
 from .report import DecisionDashboard, build_dashboard
 from .reward_drift import RewardDriftReport, compute_reward_drift
+from .review_consensus import ReviewConsensusRecord, build_review_consensus
 from .review_router import RoutedReviewBatch, route_review_items, score_review_risk
 from .runtime_config import RuntimeConfig
 from .search import PathCandidate, select_best_path
@@ -57,6 +58,7 @@ class TrainingEngine:
     policy_registry: PolicyRegistry = field(default_factory=PolicyRegistry)
     tracker: ExperimentTracker = field(default_factory=ExperimentTracker)
     trigger_rules: TriggerRuleConfig = field(default_factory=TriggerRuleConfig)
+    review_consensus_history: list[ReviewConsensusRecord] = field(default_factory=list)
 
 
     def __post_init__(self) -> None:
@@ -259,6 +261,42 @@ class TrainingEngine:
         )
         return resolved
 
+    def apply_review_consensus(
+        self,
+        decisions: list[HumanReviewDecision],
+        min_reviewers: int = 2,
+    ) -> list[ReviewConsensusRecord]:
+        records = build_review_consensus(decisions, min_reviewers=min_reviewers)
+        self.review_consensus_history.extend(records)
+
+        resolved: list[HumanReviewDecision] = []
+        for record in records:
+            if record.final_decision is None:
+                continue
+            if self.review_queue.get_pending(record.iteration) is None:
+                continue
+            resolved.append(
+                self.review_queue.resolve(
+                    iteration=record.iteration,
+                    final_decision=record.final_decision,
+                    reviewer="consensus_panel",
+                    note=record.rationale,
+                )
+            )
+
+        self.tracker.track(
+            event_type="review_consensus_applied",
+            payload={
+                "min_reviewers": min_reviewers,
+                "total_groups": len(records),
+                "consensus": sum(1 for item in records if item.status == "consensus"),
+                "arbitrated": sum(1 for item in records if item.status == "arbitrated"),
+                "pending": sum(1 for item in records if item.status == "pending_more_reviews"),
+                "resolved_iterations": [item.iteration for item in resolved],
+            },
+        )
+        return records
+
     def collect_active_learning_candidates(self, limit: int) -> list[ActiveLearningCandidate]:
         threshold = self.pipeline.config.reward_policy.approve_threshold
         candidates = select_uncertain_samples(self.pipeline.history, threshold=threshold, limit=limit)
@@ -369,6 +407,13 @@ class TrainingEngine:
                 for item in recommendations
             ],
             review_queue=review_queue,
+            review_consensus={
+                "total_groups": len(self.review_consensus_history),
+                "consensus_groups": sum(1 for item in self.review_consensus_history if item.status == "consensus"),
+                "arbitrated_groups": sum(1 for item in self.review_consensus_history if item.status == "arbitrated"),
+                "pending_groups": sum(1 for item in self.review_consensus_history if item.status == "pending_more_reviews"),
+                "recent_records": [item.to_dict() for item in self.review_consensus_history[-5:]],
+            },
             active_learning=active_learning,
             reward_drift=compute_reward_drift(self.pipeline.history),
             cost=estimate_cost(metrics),

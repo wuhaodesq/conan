@@ -14,6 +14,9 @@ def render_decision_console(console: DecisionConsole) -> str:
         f"review={data['dashboard']['metrics']['review']} block={data['dashboard']['metrics']['block']}",
         f"Review Queue: pending={data['review_queue']['pending_count']} resolved={data['review_queue']['resolved_count']} "
         f"budget={data['review_queue']['budget']}",
+        f"Review Consensus: total={data['review_consensus']['total_groups']} "
+        f"consensus={data['review_consensus']['consensus_groups']} "
+        f"arbitrated={data['review_consensus']['arbitrated_groups']}",
         f"Strategy: current={data['strategy']['current']} recommended={data['strategy']['recommended']}",
         f"Curriculum: current={data['curriculum']['current_stage']} next={data['curriculum']['next_stage'] or '-'}",
         f"Policy: active={data['policy']['active_version'] or '-'}",
