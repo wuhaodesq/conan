@@ -27,9 +27,11 @@ from .reward_policy import RewardPolicy
 from .reward_drift import RewardDriftReport, compute_reward_drift
 from .search import PathCandidate, select_best_path
 from .report import DecisionDashboard, build_dashboard
+from .review_audit import append_review_audit_event, create_review_audit_event, load_review_audit_events
 from .review_consensus import ReviewConsensusRecord, build_review_consensus, save_review_consensus
 from .review_permissions import ReviewPermissionPolicy, ReviewRolePolicy
 from .review_router import RoutedReviewBatch, route_review_items, score_review_risk
+from .review_server import build_review_server, serve_review_server
 from .review_session import (
     ReviewSession,
     ReviewerSubmission,
@@ -124,12 +126,17 @@ __all__ = [
     "TriggerRuleConfig",
     "VerifierResult",
     "analyze_failures",
+    "append_review_audit_event",
     "build_review_consensus",
     "build_dashboard",
+    "build_review_server",
     "compute_reward_drift",
+    "create_review_audit_event",
     "estimate_cost",
     "collect_review_decisions",
+    "export_review_session_decisions",
     "load_review_decisions",
+    "load_review_audit_events",
     "load_review_decision_payload",
     "load_runtime_config",
     "load_review_session",
@@ -155,6 +162,6 @@ __all__ = [
     "score_review_risk",
     "select_best_path",
     "select_uncertain_samples",
+    "serve_review_server",
     "summarize_decisions",
-    "export_review_session_decisions",
 ]

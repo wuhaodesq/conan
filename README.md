@@ -47,11 +47,13 @@
 │       ├── pipeline.py
 │       ├── policy_registry.py
 │       ├── report.py
+│       ├── review_audit.py
 │       ├── review_permissions.py
 │       ├── reward_drift.py
 │       ├── reward_policy.py
 │       ├── review_consensus.py
 │       ├── review_router.py
+│       ├── review_server.py
 │       ├── review_session.py
 │       ├── review_web.py
 │       ├── runtime_config.py
@@ -83,6 +85,7 @@
     ├── test_search.py
     ├── test_report.py
     ├── test_review_consensus.py
+    ├── test_review_server.py
     ├── test_review_session.py
     ├── test_review_web.py
     ├── test_reward_drift.py
@@ -116,6 +119,7 @@
 15. 使用服务注册表与作业编排：`python -m hybrid_trainer.cli --model-service-config examples/model_services.json --generator-service generator.example --evaluator-service evaluator.example --training-service training.example --reference-verifier --job-orchestration-output artifacts/jobs.json --execute-training --training-output artifacts/training_execution.json`
 16. 导出带权限控制的 Web 审批页：`python -m hybrid_trainer.cli --review-web-output artifacts/review_workbench.html --reviewer alice --review-role triager --review-permissions-config examples/review_permissions.json --review-budget 3 --output artifacts/run_summary.json`
 17. 创建并同步持久化 review session：`python -m hybrid_trainer.cli --review-session-output artifacts/review_session.json --review-session-id session-alpha --review-budget 3 --output artifacts/run_summary.json`
+18. 启动带鉴权与审计日志的 review server：`python -m hybrid_trainer.review_server --session artifacts/review_session.json --auth-token demo-token --audit-log artifacts/review_audit.jsonl --port 8000`
 
 ## 当前已完成的开发
 
@@ -153,7 +157,9 @@
 - 服务注册表与作业编排：支持通过命名 generator/evaluator/training 服务接入外部模型能力，并导出带依赖关系的任务分发与训练作业日志。
 - Web 审批回填与权限管理：支持导出可直接下载 `review_decisions.json` 的审批工作台，并通过角色策略控制可见性与可执行决策范围。
 - 持久化 review session：支持保存审批 session、同步多 reviewer 的提交状态，并导出聚合后的 `review_decisions.json` 供 CLI 共识或回填流程复用。
+- 带鉴权和审计日志的 review server：支持以 Bearer token 保护 session API、服务端决策提交与 JSONL 审计记录，使 Web 审批从静态页升级为可运行的服务端应用。
 
 ## 新的探索方向
 
-- 将 Web 审批页升级为带鉴权和审计日志的服务端应用。
+- 接入真实的数据库或对象存储，替代本地 JSON 文件后端。
+- 对接真实身份提供方（OIDC/SSO）与细粒度审批权限。
