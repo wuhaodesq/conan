@@ -32,6 +32,7 @@ from .runtime_config import RuntimeConfig
 from .search import PathCandidate, select_best_path
 from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
+from .training_execution import SimulatedTrainingExecutor, TrainingExecutionRequest, TrainingExecutionResult
 from .triggers import NodeTriggerRecommendation, TriggerRuleConfig, recommend_major_nodes
 from .verifier import SimpleVerifier
 
@@ -48,6 +49,7 @@ class TrainingEngine:
     generator: TaskGenerator = field(default_factory=TaskGenerator)
     evaluator: AutoEvaluator = field(default_factory=AutoEvaluator)
     verifier: SimpleVerifier = field(default_factory=SimpleVerifier)
+    training_executor: SimulatedTrainingExecutor = field(default_factory=SimulatedTrainingExecutor)
     pipeline: TrainingPipeline = field(default_factory=TrainingPipeline)
     review_queue: HumanReviewQueue = field(default_factory=HumanReviewQueue)
     strategy_manager: StrategyManager = field(default_factory=StrategyManager)
@@ -441,6 +443,35 @@ class TrainingEngine:
             },
         )
         return cost
+
+    def execute_training(
+        self,
+        strategy: TrainingStrategy | None = None,
+        output_path: str = "",
+    ) -> TrainingExecutionResult:
+        metrics = summarize_decisions(self.pipeline.history)
+        target_strategy = strategy or self.strategy_manager.current
+        request = TrainingExecutionRequest(
+            strategy=target_strategy,
+            metrics=metrics,
+            curriculum_stage=self.curriculum_manager.current_stage.name,
+            policy_version=self.pipeline.config.reward_policy.version,
+        )
+        self.tracker.track(
+            event_type="training_execution_started",
+            payload={
+                "strategy": request.strategy.value,
+                "curriculum_stage": request.curriculum_stage,
+                "policy_version": request.policy_version,
+                "total_samples": metrics.total,
+            },
+        )
+        result = self.training_executor.execute(request, output_path=output_path)
+        self.tracker.track(
+            event_type="training_execution_completed",
+            payload=result.to_dict(),
+        )
+        return result
 
 
     def apply_policy_version(self, version: str) -> None:

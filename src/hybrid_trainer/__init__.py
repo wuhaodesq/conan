@@ -34,6 +34,12 @@ from .pipeline import (
 )
 from .state import EngineStateSnapshot, load_snapshot, save_snapshot
 from .strategy import StrategyManager, StrategySwitchRecord, TrainingStrategy
+from .training_execution import (
+    SimulatedTrainingExecutor,
+    TrainingExecutionRequest,
+    TrainingExecutionResult,
+    save_training_execution_result,
+)
 from .triggers import NodeTriggerRecommendation, TriggerRuleConfig, recommend_major_nodes
 from .verifier import SimpleVerifier, VerifierResult
 
@@ -71,9 +77,12 @@ __all__ = [
     "SimpleVerifier",
     "StrategyManager",
     "StrategySwitchRecord",
+    "TrainingExecutionRequest",
+    "TrainingExecutionResult",
     "TaskGenerator",
     "TaskSample",
     "TrainingEngine",
+    "SimulatedTrainingExecutor",
     "TrainingPipeline",
     "TrainingStrategy",
     "TriggerRuleConfig",
@@ -91,6 +100,7 @@ __all__ = [
     "save_review_batch",
     "save_decision_console",
     "save_snapshot",
+    "save_training_execution_result",
     "score_review_risk",
     "select_best_path",
     "select_uncertain_samples",

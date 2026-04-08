@@ -45,6 +45,7 @@
 │       ├── search.py
 │       ├── state.py
 │       ├── strategy.py
+│       ├── training_execution.py
 │       ├── triggers.py
 │       └── verifier.py
 └── tests/
@@ -67,6 +68,7 @@
     ├── test_reward_policy.py
     ├── test_state.py
     ├── test_strategy.py
+    ├── test_training_execution.py
     ├── test_triggers.py
     ├── test_verifier.py
     └── test_runtime_config.py
@@ -82,6 +84,7 @@
 6. 使用运行时配置：`python -m hybrid_trainer.cli --config examples/runtime_config.json`
 7. 导出人工决策台：`python -m hybrid_trainer.cli --console-output artifacts/decision_console.json`
 8. 导出待审批次并回填人工结论：`python -m hybrid_trainer.cli --review-batch-output artifacts/review_batch.json --review-decisions-input artifacts/review_decisions.json`
+9. 执行训练器并导出训练工件：`python -m hybrid_trainer.cli --execute-training --training-output artifacts/training_execution.json`
 
 ## 当前已完成的开发
 
@@ -110,9 +113,9 @@
 - 运行时配置：支持通过 JSON/CLI 覆盖 reward policy 与节点触发规则，并将配置写入运行摘要。
 - 人工决策台 v1：支持聚合 review 队列、失败诊断、主动学习候选、策略/课程/策略版本与近期事件，并导出 JSON 工件。
 - 审批回填流：支持导出 review batch、导入人工结论 JSON，并在决策台与运行摘要中回填 resolved 状态。
+- 训练执行器闭环：支持按当前 SFT/RL/DPO 策略执行模拟训练任务，并将结果写入训练工件、运行摘要与实验事件日志。
 
 ## 下一步开发方向
 
 - 接入真实 task generator/verifier。
-- 打通 SFT/RL 训练执行器与实验日志。
 - 增加人工决策台交互界面与审批回填流程。

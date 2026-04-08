@@ -57,3 +57,26 @@ def test_cli_run_can_load_runtime_config(tmp_path) -> None:
     data = json.loads(output.read_text())
     assert data["config"]["reward_policy"]["version"] == "v2"
     assert data["dashboard"]["metrics"]["review"] == 1
+
+
+def test_cli_can_execute_training_and_export_artifact(tmp_path) -> None:
+    output = tmp_path / "summary.json"
+    training_output = tmp_path / "training.json"
+
+    run([
+        "--start",
+        "7",
+        "--end",
+        "13",
+        "--execute-training",
+        "--training-output",
+        str(training_output),
+        "--output",
+        str(output),
+    ])
+
+    data = json.loads(output.read_text(encoding="utf-8"))
+    assert data["training_execution"] is not None
+    assert data["training_execution"]["strategy"] == "rl"
+    training_data = json.loads(training_output.read_text(encoding="utf-8"))
+    assert training_data["status"] == "completed"

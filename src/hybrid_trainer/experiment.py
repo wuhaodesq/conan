@@ -30,5 +30,5 @@ class ExperimentTracker:
         output = Path(path)
         output.parent.mkdir(parents=True, exist_ok=True)
         lines = [json.dumps(asdict(event), ensure_ascii=False) for event in self.events]
-        output.write_text("\n".join(lines) + ("\n" if lines else ""))
+        output.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
         return output

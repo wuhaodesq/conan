@@ -11,6 +11,7 @@ from .runtime_config import RuntimeConfig, load_runtime_config
 from .decision_console import save_decision_console
 from .human_review import load_review_decisions
 from .state import save_snapshot
+from .strategy import TrainingStrategy
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -26,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output", type=str, default="artifacts/run_summary.json", help="summary output path")
     parser.add_argument("--console-output", type=str, default="", help="optional decision console JSON path")
+    parser.add_argument("--training-output", type=str, default="", help="optional training execution JSON path")
     parser.add_argument("--review-batch-output", type=str, default="", help="optional pending review batch JSON path")
     parser.add_argument(
         "--review-decisions-input",
@@ -35,6 +37,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--events-output", type=str, default="", help="optional events JSONL export path")
     parser.add_argument("--state-output", type=str, default="", help="optional state snapshot JSON path")
+    parser.add_argument("--execute-training", action="store_true", help="run the current training strategy executor")
+    parser.add_argument(
+        "--training-strategy",
+        type=str,
+        default="",
+        choices=["", *[item.value for item in TrainingStrategy]],
+        help="override strategy used for training execution",
+    )
     parser.add_argument("--config", type=str, default="", help="optional runtime JSON config path")
     parser.add_argument("--policy-version", type=str, default=None, help="override reward policy version")
     parser.add_argument("--approve-threshold", type=float, default=None, help="override reward approve threshold")
@@ -135,6 +145,10 @@ def run(args: list[str] | None = None) -> Path:
     cost = engine.analyze_cost()
     strategy_switch = engine.maybe_switch_strategy()
     curriculum_adv = engine.maybe_advance_curriculum()
+    training_result = None
+    if ns.execute_training or ns.training_output:
+        target_strategy = TrainingStrategy(ns.training_strategy) if ns.training_strategy else None
+        training_result = engine.execute_training(strategy=target_strategy, output_path=ns.training_output)
 
     payload = {
         "range": {"start": ns.start, "end": ns.end},
@@ -165,6 +179,7 @@ def run(args: list[str] | None = None) -> Path:
             "stage": engine.curriculum_manager.current_stage.name,
             "advanced": curriculum_adv is not None,
         },
+        "training_execution": training_result.to_dict() if training_result is not None else None,
     }
 
     output = Path(ns.output)
