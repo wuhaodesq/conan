@@ -9,6 +9,7 @@ from hybrid_trainer.engine import TrainingEngine
 from hybrid_trainer.pipeline import DecisionNode
 from hybrid_trainer.review_identity import (
     IntrospectionIdentityProvider,
+    ReviewIdentity,
     StaticIdentityProvider,
     build_identity_provider_from_file,
 )
@@ -109,6 +110,51 @@ def test_static_identity_provider_and_group_permissions(tmp_path) -> None:
     role_policy = policy.resolve("triager")
     assert role_policy.allows_identity(triager) is True
     assert role_policy.allows_identity(observer) is False
+
+
+def test_review_role_policy_matches_subject_email_and_issuer() -> None:
+    policy = ReviewPermissionPolicy.from_dict(
+        {
+            "roles": [
+                {
+                    "role": "triager",
+                    "allowed_decisions": ["approve", "review"],
+                    "can_resolve": True,
+                    "can_export": True,
+                    "allowed_subjects": ["alice"],
+                    "allowed_emails": ["alice@example.com"],
+                    "allowed_issuers": ["local-dev"],
+                    "allowed_groups": ["triagers"],
+                }
+            ]
+        }
+    )
+    role_policy = policy.resolve("triager")
+    allowed = ReviewIdentity(
+        subject="alice",
+        display_name="Alice Example",
+        email="alice@example.com",
+        issuer="local-dev",
+        groups=("triagers",),
+    )
+    matched_by_email = ReviewIdentity(
+        subject="eve",
+        display_name="Eve Example",
+        email="alice@example.com",
+        issuer="other-issuer",
+        groups=("other",),
+    )
+    rejected = ReviewIdentity(
+        subject="eve",
+        display_name="Eve Example",
+        email="eve@other.example",
+        issuer="other-issuer",
+        groups=("other",),
+    )
+
+    assert role_policy.allows_identity(allowed) is True
+    assert role_policy.allows_identity(matched_by_email) is True
+    assert role_policy.allows_identity(rejected) is False
 
 
 def test_example_identity_and_permission_configs_parse() -> None:
