@@ -2,11 +2,12 @@
 
 from .active_learning import ActiveLearningCandidate, select_uncertain_samples
 from .cli import run as run_cli
+from .command_backend import CommandBackendError
 from .cost import CostReport, estimate_cost
 from .curriculum import CurriculumAdvanceRecord, CurriculumManager, CurriculumStage
 from .decision_console import DecisionConsole, save_decision_console
 from .engine import CycleResult, TrainingEngine
-from .evaluation import AutoEvaluator, EvaluationResult
+from .evaluation import AutoEvaluator, CommandAutoEvaluator, EvaluationResult, Evaluator
 from .experiment import ExperimentEvent, ExperimentTracker
 from .failure_analysis import FailureTaxonomy, analyze_failures
 from .generation import DatasetTaskGenerator, TaskGenerator, TaskSample, load_task_samples
@@ -38,7 +39,9 @@ from .state import EngineStateSnapshot, load_snapshot, save_snapshot
 from .strategy import StrategyManager, StrategySwitchRecord, TrainingStrategy
 from .terminal_ui import collect_review_decisions, render_decision_console, render_review_batch
 from .training_execution import (
+    CommandTrainingExecutor,
     SimulatedTrainingExecutor,
+    TrainingExecutor,
     TrainingExecutionRequest,
     TrainingExecutionResult,
     save_training_execution_result,
@@ -50,6 +53,9 @@ from .web_console import render_decision_console_html, save_decision_console_htm
 __all__ = [
     "ActiveLearningCandidate",
     "AutoEvaluator",
+    "CommandAutoEvaluator",
+    "CommandBackendError",
+    "CommandTrainingExecutor",
     "CostReport",
     "CurriculumAdvanceRecord",
     "CurriculumManager",
@@ -63,6 +69,7 @@ __all__ = [
     "DatasetTaskGenerator",
     "EngineStateSnapshot",
     "EvaluationResult",
+    "Evaluator",
     "ExperimentEvent",
     "ExperimentTracker",
     "FailureTaxonomy",
@@ -86,6 +93,7 @@ __all__ = [
     "StrategySwitchRecord",
     "TrainingExecutionRequest",
     "TrainingExecutionResult",
+    "TrainingExecutor",
     "TaskGenerator",
     "TaskSample",
     "TrainingEngine",

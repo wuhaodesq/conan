@@ -18,6 +18,8 @@
 .
 ├── README.md
 ├── examples/
+│   ├── external_evaluator.py
+│   ├── external_trainer.py
 │   ├── runtime_config.json
 │   └── task_dataset.json
 ├── hybrid_self_improvement_training_plan.md
@@ -26,6 +28,7 @@
 │       ├── __init__.py
 │       ├── active_learning.py
 │       ├── cli.py
+│       ├── command_backend.py
 │       ├── cost.py
 │       ├── curriculum.py
 │       ├── decision_console.py
@@ -60,6 +63,7 @@
     ├── test_dataset_integration.py
     ├── test_decision_console.py
     ├── test_engine.py
+    ├── test_external_backends.py
     ├── test_active_learning.py
     ├── test_experiment_tracker.py
     ├── test_failure_analysis.py
@@ -97,6 +101,7 @@
 11. 终端交互式人工审批：`python -m hybrid_trainer.cli --print-console --print-review-batch --interactive-review --reviewer alice`
 12. 导出可视化 HTML 决策台：`python -m hybrid_trainer.cli --console-html-output artifacts/decision_console.html`
 13. 多评审一致性与冲突仲裁：`python -m hybrid_trainer.cli --review-decisions-input artifacts/review_decisions.json --review-consensus-min-reviewers 2 --review-consensus-output artifacts/review_consensus.json`
+14. 接入外部评估器与训练后端：`python -m hybrid_trainer.cli --task-dataset examples/task_dataset.json --reference-verifier --external-evaluator-cmd "[\"python\", \"examples/external_evaluator.py\"]" --external-training-cmd "[\"python\", \"examples/external_trainer.py\"]" --execute-training --training-output artifacts/training_execution.json`
 
 ## 当前已完成的开发
 
@@ -130,7 +135,9 @@
 - 终端交互式决策台：支持将 console/review batch 渲染为人可读文本，并在 CLI 中逐条录入人工审批结论。
 - 可视化 HTML 决策台：支持从同一份 decision console 数据导出可离线打开、可分享的 Web 风格运营视图。
 - 多评审一致性与仲裁：支持按 iteration 聚合多位 reviewer 的投票结果，输出共识记录，并在冲突时采取保守仲裁。
+- 外部命令后端：支持通过 stdin/stdout JSON 协议接入更真实的自动评估器与训练执行器，并保留运行摘要、训练工件与 CLI 工作流。
 
-## 下一步开发方向
+## 后续可选方向
 
-- 接入更真实的外部自动评估器与训练后端。
+- 接入真实的任务分发队列、模型服务和异步作业编排。
+- 为人工决策台补充 Web 端审批回填与权限管理。

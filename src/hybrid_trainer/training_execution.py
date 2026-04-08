@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+from typing import Protocol
 
+from .command_backend import run_json_command
 from .metrics import DecisionMetrics
 from .strategy import TrainingStrategy
 
@@ -14,6 +16,14 @@ class TrainingExecutionRequest:
     metrics: DecisionMetrics
     curriculum_stage: str
     policy_version: str
+
+    def to_dict(self) -> dict:
+        return {
+            "strategy": self.strategy.value,
+            "metrics": self.metrics.to_dict(),
+            "curriculum_stage": self.curriculum_stage,
+            "policy_version": self.policy_version,
+        }
 
 
 @dataclass(slots=True)
@@ -40,6 +50,15 @@ class TrainingExecutionResult:
             "policy_version": self.policy_version,
             "artifact_path": self.artifact_path,
         }
+
+
+class TrainingExecutor(Protocol):
+    def execute(
+        self,
+        request: TrainingExecutionRequest,
+        output_path: str = "",
+    ) -> "TrainingExecutionResult":
+        ...
 
 
 class SimulatedTrainingExecutor:
@@ -78,6 +97,43 @@ class SimulatedTrainingExecutor:
 
         input_samples = max(metrics.approve + metrics.review, 1)
         return input_samples, input_samples * 18, 2, "preference_optimization"
+
+
+class CommandTrainingExecutor:
+    """Adapter that delegates training execution to an external JSON-speaking command."""
+
+    def __init__(self, command: str, timeout_seconds: int = 120) -> None:
+        self.command = command
+        self.timeout_seconds = timeout_seconds
+
+    def execute(
+        self,
+        request: TrainingExecutionRequest,
+        output_path: str = "",
+    ) -> TrainingExecutionResult:
+        response = run_json_command(
+            self.command,
+            payload={
+                "request": request.to_dict(),
+                "output_path": output_path,
+            },
+            timeout_seconds=self.timeout_seconds,
+        )
+
+        result = TrainingExecutionResult(
+            strategy=TrainingStrategy(str(response.get("strategy", request.strategy.value))),
+            status=str(response.get("status", "completed")),
+            objective=str(response["objective"]),
+            input_samples=int(response["input_samples"]),
+            training_steps=int(response["training_steps"]),
+            epochs=int(response["epochs"]),
+            curriculum_stage=str(response.get("curriculum_stage", request.curriculum_stage)),
+            policy_version=str(response.get("policy_version", request.policy_version)),
+            artifact_path=str(response.get("artifact_path", output_path)),
+        )
+        if output_path:
+            save_training_execution_result(result, output_path)
+        return result
 
 
 def save_training_execution_result(result: TrainingExecutionResult, path: str) -> Path:

@@ -12,6 +12,14 @@ class DecisionMetrics:
     review: int
     block: int
 
+    def to_dict(self) -> dict:
+        return {
+            "total": self.total,
+            "approve": self.approve,
+            "review": self.review,
+            "block": self.block,
+        }
+
 
 def summarize_decisions(history: list[IterationReport]) -> DecisionMetrics:
     approve = sum(1 for item in history if item.decision == Decision.APPROVE)

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from .engine import TrainingEngine
+from .evaluation import AutoEvaluator, CommandAutoEvaluator, Evaluator
 from .pipeline import DecisionNode, PipelineConfig, TrainingPipeline
 from .runtime_config import RuntimeConfig, load_runtime_config
 from .decision_console import save_decision_console
@@ -15,6 +16,7 @@ from .review_consensus import save_review_consensus
 from .state import save_snapshot
 from .strategy import TrainingStrategy
 from .terminal_ui import collect_review_decisions, render_decision_console, render_review_batch
+from .training_execution import CommandTrainingExecutor, SimulatedTrainingExecutor, TrainingExecutor
 from .verifier import ReferenceAnswerVerifier, SimpleVerifier
 from .web_console import save_decision_console_html
 
@@ -35,6 +37,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--console-html-output", type=str, default="", help="optional decision console HTML path")
     parser.add_argument("--training-output", type=str, default="", help="optional training execution JSON path")
     parser.add_argument("--task-dataset", type=str, default="", help="optional JSON/JSONL task dataset path")
+    parser.add_argument(
+        "--external-evaluator-cmd",
+        type=str,
+        default="",
+        help="optional external evaluator command; reads JSON from stdin and returns JSON to stdout",
+    )
+    parser.add_argument(
+        "--external-evaluator-timeout",
+        type=int,
+        default=30,
+        help="timeout in seconds for the external evaluator command",
+    )
     parser.add_argument("--review-batch-output", type=str, default="", help="optional pending review batch JSON path")
     parser.add_argument("--review-decisions-output", type=str, default="", help="optional review decisions JSON output path")
     parser.add_argument("--review-consensus-output", type=str, default="", help="optional review consensus JSON output path")
@@ -47,6 +61,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--events-output", type=str, default="", help="optional events JSONL export path")
     parser.add_argument("--state-output", type=str, default="", help="optional state snapshot JSON path")
     parser.add_argument("--execute-training", action="store_true", help="run the current training strategy executor")
+    parser.add_argument(
+        "--external-training-cmd",
+        type=str,
+        default="",
+        help="optional external training command; reads JSON from stdin and returns JSON to stdout",
+    )
+    parser.add_argument(
+        "--external-training-timeout",
+        type=int,
+        default=120,
+        help="timeout in seconds for the external training command",
+    )
     parser.add_argument("--print-console", action="store_true", help="render the decision console to stdout")
     parser.add_argument("--print-review-batch", action="store_true", help="render the selected review batch to stdout")
     parser.add_argument("--interactive-review", action="store_true", help="collect human review decisions interactively")
@@ -155,10 +181,28 @@ def _resolve_task_generator(ns: argparse.Namespace) -> TaskGenerator:
     return TaskGenerator()
 
 
+def _resolve_evaluator(ns: argparse.Namespace) -> Evaluator:
+    if ns.external_evaluator_cmd:
+        return CommandAutoEvaluator(
+            ns.external_evaluator_cmd,
+            timeout_seconds=ns.external_evaluator_timeout,
+        )
+    return AutoEvaluator()
+
+
 def _resolve_verifier(ns: argparse.Namespace) -> SimpleVerifier:
     if ns.reference_verifier or ns.task_dataset:
         return ReferenceAnswerVerifier()
     return SimpleVerifier()
+
+
+def _resolve_training_executor(ns: argparse.Namespace) -> TrainingExecutor:
+    if ns.external_training_cmd:
+        return CommandTrainingExecutor(
+            ns.external_training_cmd,
+            timeout_seconds=ns.external_training_timeout,
+        )
+    return SimulatedTrainingExecutor()
 
 
 def run(args: list[str] | None = None) -> Path:
@@ -168,8 +212,10 @@ def run(args: list[str] | None = None) -> Path:
     runtime_config = _resolve_runtime_config(ns)
     engine = TrainingEngine(
         generator=_resolve_task_generator(ns),
+        evaluator=_resolve_evaluator(ns),
         pipeline=TrainingPipeline(config=PipelineConfig(reward_policy=runtime_config.reward_policy)),
         trigger_rules=runtime_config.trigger_rules,
+        training_executor=_resolve_training_executor(ns),
         verifier=_resolve_verifier(ns),
     )
     node = DecisionNode(ns.node)
@@ -224,7 +270,11 @@ def run(args: list[str] | None = None) -> Path:
         "config": runtime_config.to_dict(),
         "inputs": {
             "task_dataset": ns.task_dataset or None,
+            "evaluator": type(engine.evaluator).__name__,
             "verifier": type(engine.verifier).__name__,
+            "training_executor": type(engine.training_executor).__name__,
+            "external_evaluator_cmd": ns.external_evaluator_cmd or None,
+            "external_training_cmd": ns.external_training_cmd or None,
         },
         "human_review": {
             "pending": len(engine.review_queue.pending),

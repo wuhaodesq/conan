@@ -17,7 +17,7 @@ from .decision_console import (
     ReviewQueueItemView,
     StrategyConsoleView,
 )
-from .evaluation import AutoEvaluator
+from .evaluation import AutoEvaluator, Evaluator
 from .experiment import ExperimentTracker
 from .failure_analysis import FailureTaxonomy, analyze_failures
 from .generation import TaskGenerator, TaskSample
@@ -33,7 +33,7 @@ from .runtime_config import RuntimeConfig
 from .search import PathCandidate, select_best_path
 from .state import EngineStateSnapshot
 from .strategy import StrategyManager, StrategySwitchRecord
-from .training_execution import SimulatedTrainingExecutor, TrainingExecutionRequest, TrainingExecutionResult
+from .training_execution import SimulatedTrainingExecutor, TrainingExecutionRequest, TrainingExecutionResult, TrainingExecutor
 from .triggers import NodeTriggerRecommendation, TriggerRuleConfig, recommend_major_nodes
 from .verifier import SimpleVerifier
 
@@ -48,9 +48,9 @@ class CycleResult:
 @dataclass
 class TrainingEngine:
     generator: TaskGenerator = field(default_factory=TaskGenerator)
-    evaluator: AutoEvaluator = field(default_factory=AutoEvaluator)
+    evaluator: Evaluator = field(default_factory=AutoEvaluator)
     verifier: SimpleVerifier = field(default_factory=SimpleVerifier)
-    training_executor: SimulatedTrainingExecutor = field(default_factory=SimulatedTrainingExecutor)
+    training_executor: TrainingExecutor = field(default_factory=SimulatedTrainingExecutor)
     pipeline: TrainingPipeline = field(default_factory=TrainingPipeline)
     review_queue: HumanReviewQueue = field(default_factory=HumanReviewQueue)
     strategy_manager: StrategyManager = field(default_factory=StrategyManager)
