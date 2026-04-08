@@ -1,0 +1,14 @@
+[
+  {
+    "task_id": "math-1",
+    "prompt": "Compute 2 + 2.",
+    "candidate_answer": "4",
+    "reference_answer": "4"
+  },
+  {
+    "task_id": "logic-1",
+    "prompt": "Answer yes or no: Is water wet?",
+    "candidate_answer": "yes",
+    "reference_answer": "yes"
+  }
+]

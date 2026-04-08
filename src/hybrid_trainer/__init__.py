@@ -9,7 +9,7 @@ from .engine import CycleResult, TrainingEngine
 from .evaluation import AutoEvaluator, EvaluationResult
 from .experiment import ExperimentEvent, ExperimentTracker
 from .failure_analysis import FailureTaxonomy, analyze_failures
-from .generation import TaskGenerator, TaskSample
+from .generation import DatasetTaskGenerator, TaskGenerator, TaskSample, load_task_samples
 from .human_review import (
     HumanReviewDecision,
     HumanReviewItem,
@@ -41,7 +41,7 @@ from .training_execution import (
     save_training_execution_result,
 )
 from .triggers import NodeTriggerRecommendation, TriggerRuleConfig, recommend_major_nodes
-from .verifier import SimpleVerifier, VerifierResult
+from .verifier import ReferenceAnswerVerifier, SimpleVerifier, VerifierResult
 
 __all__ = [
     "ActiveLearningCandidate",
@@ -56,6 +56,7 @@ __all__ = [
     "DecisionDashboard",
     "DecisionMetrics",
     "DecisionNode",
+    "DatasetTaskGenerator",
     "EngineStateSnapshot",
     "EvaluationResult",
     "ExperimentEvent",
@@ -68,6 +69,7 @@ __all__ = [
     "NodeTriggerRecommendation",
     "PathCandidate",
     "PipelineConfig",
+    "ReferenceAnswerVerifier",
     "PolicyRegistry",
     "PolicyVersionRecord",
     "RewardDriftReport",
@@ -94,6 +96,7 @@ __all__ = [
     "load_review_decisions",
     "load_runtime_config",
     "load_snapshot",
+    "load_task_samples",
     "recommend_major_nodes",
     "route_review_items",
     "run_cli",

@@ -9,9 +9,11 @@ from .engine import TrainingEngine
 from .pipeline import DecisionNode, PipelineConfig, TrainingPipeline
 from .runtime_config import RuntimeConfig, load_runtime_config
 from .decision_console import save_decision_console
+from .generation import DatasetTaskGenerator, TaskGenerator
 from .human_review import load_review_decisions
 from .state import save_snapshot
 from .strategy import TrainingStrategy
+from .verifier import ReferenceAnswerVerifier, SimpleVerifier
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=str, default="artifacts/run_summary.json", help="summary output path")
     parser.add_argument("--console-output", type=str, default="", help="optional decision console JSON path")
     parser.add_argument("--training-output", type=str, default="", help="optional training execution JSON path")
+    parser.add_argument("--task-dataset", type=str, default="", help="optional JSON/JSONL task dataset path")
     parser.add_argument("--review-batch-output", type=str, default="", help="optional pending review batch JSON path")
     parser.add_argument(
         "--review-decisions-input",
@@ -46,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="override strategy used for training execution",
     )
     parser.add_argument("--config", type=str, default="", help="optional runtime JSON config path")
+    parser.add_argument(
+        "--reference-verifier",
+        action="store_true",
+        help="use reference-answer verifier when tasks include reference answers",
+    )
     parser.add_argument("--policy-version", type=str, default=None, help="override reward policy version")
     parser.add_argument("--approve-threshold", type=float, default=None, help="override reward approve threshold")
     parser.add_argument("--review-band", type=float, default=None, help="override reward review band")
@@ -125,14 +133,28 @@ def _resolve_runtime_config(ns: argparse.Namespace) -> RuntimeConfig:
     return RuntimeConfig(reward_policy=reward_policy, trigger_rules=trigger_rules)
 
 
+def _resolve_task_generator(ns: argparse.Namespace) -> TaskGenerator:
+    if ns.task_dataset:
+        return DatasetTaskGenerator.from_file(ns.task_dataset)
+    return TaskGenerator()
+
+
+def _resolve_verifier(ns: argparse.Namespace) -> SimpleVerifier:
+    if ns.reference_verifier or ns.task_dataset:
+        return ReferenceAnswerVerifier()
+    return SimpleVerifier()
+
+
 def run(args: list[str] | None = None) -> Path:
     parser = build_parser()
     ns = parser.parse_args(args=args)
 
     runtime_config = _resolve_runtime_config(ns)
     engine = TrainingEngine(
+        generator=_resolve_task_generator(ns),
         pipeline=TrainingPipeline(config=PipelineConfig(reward_policy=runtime_config.reward_policy)),
         trigger_rules=runtime_config.trigger_rules,
+        verifier=_resolve_verifier(ns),
     )
     node = DecisionNode(ns.node)
     engine.run_cycles(ns.start, ns.end, node)
@@ -154,6 +176,10 @@ def run(args: list[str] | None = None) -> Path:
         "range": {"start": ns.start, "end": ns.end},
         "node": ns.node,
         "config": runtime_config.to_dict(),
+        "inputs": {
+            "task_dataset": ns.task_dataset or None,
+            "verifier": type(engine.verifier).__name__,
+        },
         "human_review": {
             "pending": len(engine.review_queue.pending),
             "resolved": len(engine.review_queue.resolved),

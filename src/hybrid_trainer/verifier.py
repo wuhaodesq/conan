@@ -26,3 +26,27 @@ class SimpleVerifier:
             delta=delta,
             requires_review=delta >= self.review_delta_threshold,
         )
+
+
+class ReferenceAnswerVerifier(SimpleVerifier):
+    """Verifier backed by task-level reference answers."""
+
+    def verify(self, sample: TaskSample, auto_score: float) -> VerifierResult:
+        if not sample.reference_answer:
+            return VerifierResult(
+                verifier_score=auto_score,
+                delta=0.0,
+                requires_review=False,
+            )
+
+        verifier_score = 1.0 if _normalize_text(sample.candidate_answer) == _normalize_text(sample.reference_answer) else 0.0
+        delta = abs(verifier_score - auto_score)
+        return VerifierResult(
+            verifier_score=verifier_score,
+            delta=delta,
+            requires_review=delta >= self.review_delta_threshold,
+        )
+
+
+def _normalize_text(text: str) -> str:
+    return " ".join(text.strip().lower().split())
