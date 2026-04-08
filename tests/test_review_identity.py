@@ -118,7 +118,11 @@ def test_example_identity_and_permission_configs_parse() -> None:
 
     assert isinstance(static_provider, StaticIdentityProvider)
     assert isinstance(oidc_provider, IntrospectionIdentityProvider)
-    assert policy.resolve("triager").allowed_groups == ("triagers",)
+    triager = policy.resolve("triager")
+    assert triager.allowed_subjects == ("alice",)
+    assert triager.allowed_emails == ("alice@example.com",)
+    assert triager.allowed_issuers == ("local-dev",)
+    assert triager.allowed_groups == ("triagers",)
 
 
 def test_introspection_identity_provider_and_review_server_permissions(tmp_path) -> None:

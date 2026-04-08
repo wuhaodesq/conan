@@ -12,6 +12,9 @@
       "allowed_decisions": ["approve", "review"],
       "can_resolve": true,
       "can_export": true,
+      "allowed_subjects": ["alice"],
+      "allowed_emails": ["alice@example.com"],
+      "allowed_issuers": ["local-dev"],
       "allowed_groups": ["triagers"],
       "description": "Group-restricted triager role for identity-backed approvals."
     },
@@ -20,6 +23,9 @@
       "allowed_decisions": ["approve", "review", "block"],
       "can_resolve": true,
       "can_export": true,
+      "allowed_subjects": ["carol"],
+      "allowed_emails": ["carol@example.com"],
+      "allowed_issuers": ["local-dev"],
       "allowed_groups": ["admins"],
       "description": "Administrative reviewers can inspect audits and resolve conflicts."
     }
