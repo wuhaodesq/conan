@@ -50,7 +50,14 @@ from .review_session import (
     load_review_session,
     save_review_session,
 )
-from .review_store import FileReviewStore, PostgresReviewStore, ReviewStore, SqliteReviewStore, build_review_store
+from .review_store import (
+    FileReviewStore,
+    ObjectStorageReviewStore,
+    PostgresReviewStore,
+    ReviewStore,
+    SqliteReviewStore,
+    build_review_store,
+)
 from .review_web import render_review_workbench_html, save_review_workbench_html
 from .policy_registry import PolicyRegistry, PolicyVersionRecord
 from .pipeline import (
@@ -143,6 +150,7 @@ __all__ = [
     "TriggerRuleConfig",
     "VerifierResult",
     "PostgresReviewStore",
+    "ObjectStorageReviewStore",
     "analyze_failures",
     "append_review_audit_event",
     "build_review_consensus",
@@ -184,6 +192,7 @@ __all__ = [
     "select_uncertain_samples",
     "serve_review_server",
     "FileReviewStore",
+    "ObjectStorageReviewStore",
     "PostgresReviewStore",
     "ReviewStore",
     "SqliteReviewStore",

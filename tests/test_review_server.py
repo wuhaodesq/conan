@@ -120,3 +120,46 @@ def test_review_server_parser_routes_postgres_backend(monkeypatch) -> None:
     assert captured["postgres_dsn"] == "postgresql://localhost/hybrid"
     assert captured["session_id"] == "session-alpha"
     assert captured["bootstrap_session_path"] == "bootstrap.json"
+
+
+def test_review_server_parser_routes_object_store_backend(monkeypatch) -> None:
+    captured = {}
+
+    def fake_build_review_store(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr("hybrid_trainer.review_server.build_review_store", fake_build_review_store)
+
+    ns = build_parser().parse_args(
+        [
+            "--object-store-bucket",
+            "hybrid-review",
+            "--object-store-prefix",
+            "training",
+            "--object-store-endpoint-url",
+            "http://localhost:9000",
+            "--object-store-region-name",
+            "us-east-1",
+            "--object-store-no-ssl",
+            "--object-store-force-path-style",
+            "--object-store-timeout-seconds",
+            "7",
+            "--session",
+            "bootstrap.json",
+            "--session-id",
+            "session-alpha",
+        ]
+    )
+    store = build_store_from_args(ns)
+
+    assert store is not None
+    assert captured["object_store_bucket"] == "hybrid-review"
+    assert captured["object_store_prefix"] == "training"
+    assert captured["object_store_endpoint_url"] == "http://localhost:9000"
+    assert captured["object_store_region_name"] == "us-east-1"
+    assert captured["object_store_use_ssl"] is False
+    assert captured["object_store_force_path_style"] is True
+    assert captured["object_store_timeout_seconds"] == 7
+    assert captured["session_id"] == "session-alpha"
+    assert captured["bootstrap_session_path"] == "bootstrap.json"

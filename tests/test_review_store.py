@@ -1,17 +1,18 @@
 import json
+from io import BytesIO
 import threading
+from types import SimpleNamespace
 from urllib.request import Request, urlopen
 
 from hybrid_trainer.engine import TrainingEngine
 from hybrid_trainer.human_review import HumanReviewDecision
-from hybrid_trainer.pipeline import DecisionNode
-from hybrid_trainer.pipeline import Decision
+from hybrid_trainer.pipeline import Decision, DecisionNode
 from hybrid_trainer.review_audit import create_review_audit_event
 from hybrid_trainer.review_router import route_review_items
 from hybrid_trainer.review_server import build_review_server
 from hybrid_trainer.review_permissions import ReviewPermissionPolicy
 from hybrid_trainer.review_session import ReviewSession, save_review_session
-from hybrid_trainer.review_store import PostgresReviewStore, SqliteReviewStore, build_review_store
+from hybrid_trainer.review_store import ObjectStorageReviewStore, PostgresReviewStore, SqliteReviewStore, build_review_store
 
 
 class _FakePgState:
@@ -77,6 +78,27 @@ class _FakePgConnection:
 
     async def close(self) -> None:
         return None
+
+
+class _FakeObjectStorageClient:
+    def __init__(self) -> None:
+        self.objects: dict[tuple[str, str], bytes] = {}
+
+    def get_object(self, *, Bucket: str, Key: str):
+        payload = self.objects.get((Bucket, Key))
+        if payload is None:
+            raise FileNotFoundError(f"missing object: {Bucket}/{Key}")
+        return {"Body": BytesIO(payload)}
+
+    def put_object(self, *, Bucket: str, Key: str, Body, ContentType: str):
+        if isinstance(Body, bytes):
+            payload = Body
+        elif hasattr(Body, "read"):
+            payload = Body.read()
+        else:
+            payload = str(Body).encode("utf-8")
+        self.objects[(Bucket, Key)] = payload
+        return {"ETag": "fake"}
 
 
 def _request_json(url: str, token: str = "", method: str = "GET", payload: dict | None = None) -> dict:
@@ -197,13 +219,13 @@ def test_postgres_review_store_persists_sessions_and_audit(monkeypatch, tmp_path
     loaded_session.sync_reviewer_submission(
         reviewer="alice",
         role="reviewer",
-            decisions=[
-                HumanReviewDecision(
-                    iteration=first_iteration,
-                    final_decision=Decision.APPROVE,
-                    reviewer="alice",
-                    note="approved from postgres store",
-                )
+        decisions=[
+            HumanReviewDecision(
+                iteration=first_iteration,
+                final_decision=Decision.APPROVE,
+                reviewer="alice",
+                note="approved from postgres store",
+            )
         ],
     )
     store.save_session(loaded_session)
@@ -221,6 +243,64 @@ def test_postgres_review_store_persists_sessions_and_audit(monkeypatch, tmp_path
         database_url="postgresql://localhost/hybrid",
         session_id=loaded_session.session_id,
     )
+    persisted_session = persisted_store.load_session()
+    assert persisted_session.summary()["submitted_decisions"] == 1
+    assert persisted_store.load_audit_events()[0].actor == "alice"
+
+
+def test_object_storage_review_store_persists_sessions_and_audit(monkeypatch, tmp_path) -> None:
+    engine = TrainingEngine()
+    engine.run_cycles(1, 3, DecisionNode.FAILURE_REVIEW)
+    console = engine.generate_decision_console(review_budget=2, active_learning_limit=2, recent_event_limit=2)
+    batch = route_review_items(engine.review_queue.pending, budget=2)
+    session = ReviewSession.create(console=console, batch=batch)
+    session_path = tmp_path / "review_session.json"
+    save_review_session(session, str(session_path))
+
+    client = _FakeObjectStorageClient()
+    monkeypatch.setattr(
+        "hybrid_trainer.review_store.boto3",
+        SimpleNamespace(client=lambda service_name, **kwargs: client),
+    )
+
+    store = build_review_store(
+        object_store_bucket="hybrid-review",
+        object_store_prefix="training",
+        bootstrap_session_path=str(session_path),
+    )
+    assert isinstance(store, ObjectStorageReviewStore)
+
+    loaded_session = store.load_session()
+    first_iteration = loaded_session.review_batch["items"][0]["iteration"]
+    loaded_session.sync_reviewer_submission(
+        reviewer="alice",
+        role="reviewer",
+        decisions=[
+            HumanReviewDecision(
+                iteration=first_iteration,
+                final_decision=Decision.APPROVE,
+                reviewer="alice",
+                note="approved from object storage",
+            )
+        ],
+    )
+    store.save_session(loaded_session)
+    store.append_audit_event(
+        create_review_audit_event(
+            action="decisions_submitted",
+            actor="alice",
+            role="reviewer",
+            session_id=loaded_session.session_id,
+            payload={"decision_count": 1},
+        )
+    )
+
+    persisted_store = ObjectStorageReviewStore(
+        bucket_name="hybrid-review",
+        object_prefix="training",
+        session_id=loaded_session.session_id,
+    )
+    persisted_store.client = client
     persisted_session = persisted_store.load_session()
     assert persisted_session.summary()["submitted_decisions"] == 1
     assert persisted_store.load_audit_events()[0].actor == "alice"

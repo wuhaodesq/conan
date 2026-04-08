@@ -492,6 +492,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--audit-log", default="", help="audit log JSONL path for file store mode")
     parser.add_argument("--sqlite-db", default="", help="optional SQLite database path for persisted review storage")
     parser.add_argument("--postgres-dsn", default="", help="optional PostgreSQL DSN for persisted review storage")
+    parser.add_argument("--object-store-bucket", default="", help="optional object storage bucket for persisted review storage")
+    parser.add_argument("--object-store-prefix", default="review", help="object storage key prefix for persisted review storage")
+    parser.add_argument("--object-store-endpoint-url", default="", help="optional object storage endpoint URL")
+    parser.add_argument("--object-store-region-name", default="", help="optional object storage region name")
+    parser.add_argument("--object-store-use-ssl", action="store_true", default=True, help="use SSL for object storage connections")
+    parser.add_argument("--object-store-no-ssl", action="store_false", dest="object_store_use_ssl", help="disable SSL for object storage connections")
+    parser.add_argument("--object-store-force-path-style", action="store_true", help="use path-style addressing for object storage")
+    parser.add_argument("--object-store-timeout-seconds", type=int, default=5, help="timeout for object storage clients")
     parser.add_argument("--session-id", default="", help="session id to load from SQLite/PostgreSQL store")
     parser.add_argument(
         "--identity-provider-config",
@@ -504,6 +512,28 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def build_store_from_args(ns: argparse.Namespace) -> ReviewStore:
+    selected_backends = sum(
+        bool(item)
+        for item in (
+            ns.object_store_bucket,
+            ns.postgres_dsn,
+            ns.sqlite_db,
+        )
+    )
+    if selected_backends > 1:
+        raise ValueError("choose only one of --object-store-bucket, --postgres-dsn, or --sqlite-db")
+    if ns.object_store_bucket:
+        return build_review_store(
+            object_store_bucket=ns.object_store_bucket,
+            object_store_prefix=ns.object_store_prefix,
+            object_store_endpoint_url=ns.object_store_endpoint_url,
+            object_store_region_name=ns.object_store_region_name,
+            object_store_use_ssl=ns.object_store_use_ssl,
+            object_store_force_path_style=ns.object_store_force_path_style,
+            object_store_timeout_seconds=ns.object_store_timeout_seconds,
+            session_id=ns.session_id,
+            bootstrap_session_path=ns.session,
+        )
     if ns.postgres_dsn:
         return build_review_store(
             postgres_dsn=ns.postgres_dsn,
